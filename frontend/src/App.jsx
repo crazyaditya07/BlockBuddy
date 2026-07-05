@@ -8,7 +8,8 @@ const contractAddress = import.meta.env.VITE_CONTRACT_ADDRESS || "";
 const contractABI = [
   "function postMessage(string memory _content) public",
   "function getMessageCount() public view returns (uint256)",
-  "function getMessage(uint256 index) public view returns (address, string memory, uint256)"
+  "function getMessage(uint256 index) public view returns (address, string memory, uint256)",
+  "function getMessages(uint256 start, uint256 count) public view returns ((address sender, string content, uint256 timestamp)[])"
 ];
 
 function App() {
@@ -17,9 +18,23 @@ function App() {
   const [posts, setPosts] = useState([]);
   const [isSimulated, setIsSimulated] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  
+  // Custom toast notification system
+  const [toasts, setToasts] = useState([]);
+  const showToast = (text, type = "info") => {
+    const id = Date.now() + Math.random();
+    setToasts(prev => [...prev, { id, text, type }]);
+    setTimeout(() => {
+      setToasts(prev => prev.filter(t => t.id !== id));
+    }, 4000);
+  };
+
   const [currentAddress, setCurrentAddress] = useState(() => {
     return localStorage.getItem("blockbuddy_contract_address") || contractAddress;
   });
+  const [addressError, setAddressError] = useState("");
+  const [visibleCount, setVisibleCount] = useState(20);
+
   const [leavesParticles, setLeavesParticles] = useState([]);
   const containerRef = useRef(null);
 
@@ -69,9 +84,34 @@ function App() {
     }
   }, [currentAddress, account, isSimulated]);
 
-  // Fetch messages from Ganache Blockchain
+  // MetaMask Event Listeners
+  useEffect(() => {
+    const handleAccounts = (accounts) => {
+      setAccount(accounts[0] || null);
+      if (accounts.length && !isSimulated) {
+        fetchBlockchainMessages();
+      }
+    };
+    const handleChain = () => {
+      window.location.reload();
+    };
+
+    if (window.ethereum) {
+      window.ethereum.on('accountsChanged', handleAccounts);
+      window.ethereum.on('chainChanged', handleChain);
+    }
+
+    return () => {
+      if (window.ethereum) {
+        window.ethereum.removeListener('accountsChanged', handleAccounts);
+        window.ethereum.removeListener('chainChanged', handleChain);
+      }
+    };
+  }, [isSimulated]);
+
+  // Fetch messages from Blockchain using paginated batch loading
   const fetchBlockchainMessages = async () => {
-    if (!window.ethereum || !currentAddress) return;
+    if (!window.ethereum || !currentAddress || !ethers.isAddress(currentAddress)) return;
     setIsLoading(true);
     try {
       const provider = new ethers.BrowserProvider(window.ethereum);
@@ -80,25 +120,32 @@ function App() {
       const count = Number(countBig);
       
       const loadedPosts = [];
-      for (let i = 0; i < count; i++) {
-        const [sender, content, timestamp] = await contract.getMessage(i);
-        loadedPosts.push({
-          sender,
-          content,
-          timestamp: Number(timestamp)
-        });
+      const batchSize = 50;
+      
+      // Fetch in batches of 50
+      for (let start = 0; start < count; start += batchSize) {
+        const batch = await contract.getMessages(start, batchSize);
+        for (const item of batch) {
+          loadedPosts.push({
+            sender: item.sender,
+            content: item.content,
+            timestamp: Number(item.timestamp)
+          });
+        }
       }
+      
       // Sort newest first
       loadedPosts.sort((a, b) => b.timestamp - a.timestamp);
       setPosts(loadedPosts);
     } catch (error) {
       console.error("Failed to fetch blockchain messages:", error);
+      showToast("Failed to fetch messages. Please check contract deployment.", "error");
     } finally {
       setIsLoading(false);
     }
   };
 
-  // Connect MetaMask to Ganache
+  // Connect MetaMask
   const connectWallet = async () => {
     if (window.ethereum) {
       try {
@@ -106,13 +153,13 @@ function App() {
         localStorage.setItem("blockbuddy_sim", "false");
         const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
         setAccount(accounts[0]);
-        // Switch to the custom/default address to load messages
         fetchBlockchainMessages();
       } catch (error) {
         console.error("Wallet connection failed:", error);
+        showToast("Wallet connection failed.", "error");
       }
     } else {
-      alert("MetaMask not detected. We have enabled local simulation mode so you can interact with the app!");
+      showToast("MetaMask not detected. Simulation sandbox enabled.", "info");
       setIsSimulated(true);
       localStorage.setItem("blockbuddy_sim", "true");
     }
@@ -130,6 +177,7 @@ function App() {
       if (stored) {
         setPosts(JSON.parse(stored));
       }
+      showToast("Switched to offline simulation sandbox.", "info");
     } else {
       setAccount(null);
       setPosts([]);
@@ -140,12 +188,22 @@ function App() {
   const handleAddressChange = (e) => {
     const addr = e.target.value.trim();
     setCurrentAddress(addr);
-    localStorage.setItem("blockbuddy_contract_address", addr);
+    if (addr === "" || ethers.isAddress(addr)) {
+      setAddressError("");
+      localStorage.setItem("blockbuddy_contract_address", addr);
+    } else {
+      setAddressError("Not a valid Ethereum address");
+    }
   };
 
   // User posts a message
   const handlePost = async () => {
     if (!message.trim()) return;
+
+    if (message.length > 280) {
+      showToast("Message exceeds the 280-character limit.", "error");
+      return;
+    }
 
     triggerLeafFall();
 
@@ -159,16 +217,17 @@ function App() {
       setPosts(updated);
       localStorage.setItem("blockbuddy_posts", JSON.stringify(updated));
       setMessage("");
+      showToast("🌱 Message planted in simulator sandbox!", "success");
       return;
     }
 
     if (!account) {
-      alert("Please connect your wallet first or toggle simulation mode!");
+      showToast("Please connect your wallet first.", "error");
       return;
     }
 
-    if (!currentAddress) {
-      alert("Please specify the deployed contract address below first!");
+    if (!currentAddress || !ethers.isAddress(currentAddress)) {
+      showToast("Please enter a valid contract address.", "error");
       return;
     }
 
@@ -181,10 +240,11 @@ function App() {
       const tx = await contract.postMessage(message);
       await tx.wait();
       setMessage("");
+      showToast("🌱 Message planted on-chain!", "success");
       fetchBlockchainMessages();
     } catch (error) {
       console.error(error);
-      alert("Failed to post message. Make sure your contract is deployed and your MetaMask is on the Ganache Network (http://127.0.0.1:7545, ID: 1337)");
+      showToast("Failed to post message. Check contract and gas.", "error");
     } finally {
       setIsLoading(false);
     }
@@ -194,7 +254,7 @@ function App() {
   const triggerLeafFall = () => {
     const leaves = Array.from({ length: 8 }).map((_, i) => ({
       id: Date.now() + i,
-      left: Math.random() * 80 + 10, // random offset percentage
+      left: Math.random() * 80 + 10,
       delay: Math.random() * 0.5,
       rotate: Math.random() * 360
     }));
@@ -207,19 +267,15 @@ function App() {
   // Helper to render tree branches/leaves based on message count
   const renderTreeSVG = () => {
     const count = posts.length;
-    // We determine branch count and leaf count based on number of messages
     const treeStages = {
       trunkHeight: Math.min(100 + count * 5, 160),
       branchCount: Math.min(Math.floor(count / 2), 6),
       leafCount: Math.min(count * 3, 40)
     };
 
-    // Calculate leaf nodes
     const leaves = [];
-    const seed = 42; // static seed for leaf random positions
     for (let i = 0; i < treeStages.leafCount; i++) {
-      // Deterministic positions radiating from the branch endpoints
-      const angle = (i * 137.5) * (Math.PI / 180); // Golden angle
+      const angle = (i * 137.5) * (Math.PI / 180);
       const radius = Math.min(20 + i * 2, 70);
       const cx = 160 + Math.cos(angle) * radius;
       const cy = (280 - treeStages.trunkHeight) + Math.sin(angle) * (radius * 0.6) - 15;
@@ -227,16 +283,13 @@ function App() {
     }
 
     return (
-      <svg className="tree-svg" viewBox="0 0 320 280">
-        {/* Ground */}
+      <svg className="tree-svg" viewBox="0 0 320 280" role="img" aria-label="BlockBuddy growth tree">
         <line x1="20" y1="270" x2="300" y2="270" stroke="rgba(255,255,255,0.15)" strokeWidth="2" strokeDasharray="5,5" />
         
-        {/* Roots */}
         {count > 0 && (
           <path d="M 160 270 Q 145 278 120 278 M 160 270 Q 175 278 200 278" stroke="var(--text-muted)" strokeWidth="2" fill="none" opacity="0.6" />
         )}
         
-        {/* Trunk */}
         <line 
           x1="160" 
           y1="270" 
@@ -246,7 +299,6 @@ function App() {
           strokeWidth={Math.min(4 + count * 0.5, 12)}
         />
         
-        {/* Branches */}
         {treeStages.branchCount > 0 && (
           <>
             <path d={`M 160 ${240 - treeStages.trunkHeight/3} Q 130 ${200 - treeStages.trunkHeight/2} 110 ${180 - treeStages.trunkHeight/2}`} className="branch" strokeWidth="3" fill="none" />
@@ -260,7 +312,6 @@ function App() {
           </>
         )}
 
-        {/* Leaves */}
         {leaves.map((l) => (
           <path 
             key={l.id}
@@ -270,7 +321,6 @@ function App() {
           />
         ))}
 
-        {/* Seedling (if count is 0) */}
         {count === 0 && (
           <g>
             <circle cx="160" cy="265" r="4" fill="var(--accent-light)" />
@@ -284,6 +334,16 @@ function App() {
   return (
     <div className="app-wrapper" ref={containerRef}>
       <div className="ambient-glow" />
+
+      {/* Toast banner Notifications */}
+      <div className="toasts-container">
+        {toasts.map(t => (
+          <div key={t.id} className={`toast toast-${t.type}`}>
+            <span>{t.type === "success" ? "🌱" : t.type === "error" ? "⚠️" : "ℹ️"}</span>
+            <div>{t.text}</div>
+          </div>
+        ))}
+      </div>
 
       {/* Falling leaves canvas */}
       {leavesParticles.map(leaf => (
@@ -306,17 +366,17 @@ function App() {
           <span className="brand-logo">🌿</span>
           <div>
             <h1 className="brand-name">BlockBuddy</h1>
-            <span className="brand-tagline">private blockchain bulletin board</span>
+            <span className="brand-tagline">decentralized bulletin board</span>
           </div>
         </div>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-          <div className="mode-badge" onClick={toggleSimulationMode}>
+          <div className="mode-badge" onClick={toggleSimulationMode} aria-label="Toggle network simulation mode">
             <span className={`connection-dot ${isSimulated ? '' : 'connected'}`} />
             <span>{isSimulated ? "Simulation Sandbox" : "Blockchain Connected"}</span>
           </div>
 
-          <button className="btn-connect" onClick={connectWallet}>
+          <button className="btn-connect" onClick={connectWallet} aria-label={account ? `Wallet connected address ${account}` : "Connect Wallet"}>
             {account ? `${account.substring(0, 6)}...${account.substring(account.length - 4)}` : "Connect Wallet"}
           </button>
         </div>
@@ -329,9 +389,11 @@ function App() {
             <h2 className="panel-title"><span>📝</span> Post on Blockchain</h2>
             <div className="compose-form">
               <div className="input-wrapper">
+                <label htmlFor="message-input" className="sr-only">Message content</label>
                 <textarea 
+                  id="message-input"
                   className="forest-input"
-                  placeholder={isSimulated ? "Write a message in this Zen Garden Sandbox..." : "Type message to record permanently on Ganache..."}
+                  placeholder={isSimulated ? "Write a message in this Zen Garden Sandbox..." : "Type message to record permanently on blockchain..."}
                   value={message}
                   onChange={(e) => setMessage(e.target.value)}
                   maxLength={280}
@@ -349,12 +411,14 @@ function App() {
             </div>
           </section>
 
-            {/* Smart Contract details in case users want to update address */}
-            {!isSimulated && (
-              <section className="zen-panel" style={{ marginBottom: '2rem', padding: '1rem 2rem' }}>
+          {/* Smart Contract address field */}
+          {!isSimulated && (
+            <section className="zen-panel" style={{ marginBottom: '2rem', padding: '1rem 2rem' }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Contract Address:</span>
+                  <label htmlFor="contract-address-input" style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Contract Address:</label>
                   <input 
+                    id="contract-address-input"
                     type="text" 
                     placeholder="Enter deployed contract address (0x...)"
                     value={currentAddress} 
@@ -371,67 +435,87 @@ function App() {
                     }} 
                   />
                 </div>
-              </section>
-            )}
-
-            <section className="zen-panel feed-panel">
-              <h2 className="panel-title"><span>📜</span> Message Feed</h2>
-              <div className="messages-list-container">
-                {posts.length === 0 ? (
-                  <div className="empty-state">
-                    <div className="empty-icon">🍂</div>
-                    <p>No messages have been planted yet.</p>
-                  </div>
-                ) : (
-                  posts.map((post, idx) => (
-                    <div className="message-card" key={idx}>
-                      <div className="card-header">
-                        <span className="sender-address">
-                          {post.sender.substring(0, 8)}...{post.sender.substring(post.sender.length - 6)}
-                        </span>
-                        <span className="post-time">
-                          {new Date(post.timestamp * 1000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                        </span>
-                      </div>
-                      <div className="message-content">{post.content}</div>
-                    </div>
-                  ))
+                {addressError && (
+                  <span style={{ color: '#ef4444', fontSize: '0.75rem', textAlign: 'right' }}>{addressError}</span>
                 )}
               </div>
             </section>
-          </div>
+          )}
 
-          {/* Right column: Interactive Visualizer */}
-          <div>
-            <section className="zen-panel interactive-visualizer">
-              <h2 className="panel-title" style={{ alignSelf: 'flex-start' }}><span>🌳</span> BlockBuddy Tree</h2>
-              
-              <div className="tree-container">
-                {renderTreeSVG()}
-              </div>
+          <section className="zen-panel feed-panel">
+            <h2 className="panel-title"><span>📜</span> Message Feed</h2>
+            <div className="messages-list-container">
+              {posts.length === 0 ? (
+                <div className="empty-state">
+                  <div className="empty-icon">🍂</div>
+                  <p>No messages have been planted yet.</p>
+                </div>
+              ) : (
+                <>
+                  {posts.slice(0, visibleCount).map((post, idx) => {
+                    const isOwn = post.sender.toLowerCase() === account?.toLowerCase();
+                    return (
+                      <div className={`message-card ${isOwn ? 'own-message' : ''}`} key={idx}>
+                        <div className="card-header">
+                          <span className="sender-address">
+                            {post.sender.substring(0, 8)}...{post.sender.substring(post.sender.length - 6)}
+                          </span>
+                          <span className="post-time">
+                            {new Date(post.timestamp * 1000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                          </span>
+                        </div>
+                        <div className="message-content">{post.content}</div>
+                      </div>
+                    );
+                  })}
+                  {posts.length > visibleCount && (
+                    <div style={{ textAlign: 'center', marginTop: '1rem' }}>
+                      <button 
+                        className="btn-connect" 
+                        onClick={() => setVisibleCount(prev => prev + 20)}
+                        style={{ margin: '0 auto' }}
+                      >
+                        Load more
+                      </button>
+                    </div>
+                  )}
+                </>
+              )}
+            </div>
+          </section>
+        </div>
 
-              <div className="forest-stats">
-                <p className="stats-title">Forest Message Count</p>
-                <p className="stats-number">{posts.length}</p>
-                <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '0.5rem' }}>
-                  {posts.length === 0 
-                    ? "A single seed rests in the soil. Plant messages to grow it!"
-                    : posts.length < 5 
-                    ? "The seedling is growing healthy roots and tiny branches." 
-                    : "The forest is beginning to canopy! Keep it growing."}
-                </p>
-              </div>
-            </section>
-          </div>
-        </main>
+        {/* Right column: Interactive Visualizer */}
+        <div>
+          <section className="zen-panel interactive-visualizer">
+            <h2 className="panel-title" style={{ alignSelf: 'flex-start' }}><span>🌳</span> BlockBuddy Tree</h2>
+            
+            <div className="tree-container">
+              {renderTreeSVG()}
+            </div>
 
-        <footer>
-          <p>
-            BlockBuddy Blockchain Message Board • Powered by Hardhat, Ganache & React • <span style={{ cursor: 'pointer', textDecoration: 'underline' }} onClick={toggleSimulationMode}>Toggle Simulator</span>
-          </p>
-        </footer>
-      </div>
-    );
+            <div className="forest-stats">
+              <p className="stats-title">Forest Message Count</p>
+              <p className="stats-number">{posts.length}</p>
+              <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '0.5rem' }}>
+                {posts.length === 0 
+                  ? "A single seed rests in the soil. Plant messages to grow it!"
+                  : posts.length < 5 
+                  ? "The seedling is growing healthy roots and tiny branches." 
+                  : "The forest is beginning to canopy! Keep it growing."}
+              </p>
+            </div>
+          </section>
+        </div>
+      </main>
+
+      <footer>
+        <p>
+          BlockBuddy Blockchain Message Board • Powered by Hardhat, Ganache & React • <span style={{ cursor: 'pointer', textDecoration: 'underline' }} onClick={toggleSimulationMode}>Toggle Simulator</span>
+        </p>
+      </footer>
+    </div>
+  );
 }
 
 export default App;
