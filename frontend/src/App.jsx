@@ -19,10 +19,7 @@ function App() {
   const [isSimulated, setIsSimulated] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [isTreeShaking, setIsTreeShaking] = useState(false);
-  const [theme, setTheme] = useState(() => {
-    return localStorage.getItem("blockbuddy_theme") || "dark";
-  });
-  
+
   // Custom toast notification system
   const [toasts, setToasts] = useState([]);
   const showToast = (text, type = "info") => {
@@ -383,12 +380,6 @@ function App() {
     }
   };
 
-  // Manual Day/Night Theme Toggle
-  const toggleTheme = () => {
-    const nextTheme = theme === "dark" ? "light" : "dark";
-    setTheme(nextTheme);
-    localStorage.setItem("blockbuddy_theme", nextTheme);
-  };
 
   // Visual leaf particles effect
   const triggerLeafFall = () => {
@@ -501,7 +492,7 @@ function App() {
 
   return (
     <div 
-      className={`app-wrapper ${theme === "light" ? "day-theme" : ""}`} 
+      className="app-wrapper" 
       ref={containerRef} 
       style={{ '--glow-color': glowColor }}
     >
@@ -571,15 +562,6 @@ function App() {
         </div>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-          {/* Day/Night Theme Switcher Button */}
-          <button 
-            className="btn-theme-toggle" 
-            onClick={toggleTheme} 
-            aria-label={`Switch to ${theme === "dark" ? "light" : "dark"} mode`}
-            title={`Switch to ${theme === "dark" ? "light" : "dark"} mode`}
-          >
-            {theme === "dark" ? "☀️" : "🌙"}
-          </button>
 
           <div 
             className="mode-badge" 

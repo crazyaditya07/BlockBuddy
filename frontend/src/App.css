@@ -15,16 +15,6 @@
   --transition-smooth: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
 }
 
-.app-wrapper.day-theme {
-  --bg-color: #f1f5f2;
-  --panel-bg: #e2ede5;
-  --text-main: #141716;
-  --text-muted: #5e6b63;
-  --border-color: rgba(0, 0, 0, 0.08);
-  --input-bg: #d7e5dc;
-  --accent-forest: #cce0d2;
-}
-
 * {
   box-sizing: border-box;
   margin: 0;
@@ -781,25 +771,6 @@ footer {
   }
 }
 
-/* Theme Toggle Button Style */
-.btn-theme-toggle {
-  background: transparent;
-  border: 1px solid var(--border-color);
-  color: var(--text-main);
-  width: 36px;
-  height: 36px;
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  transition: var(--transition-smooth);
-}
-
-.btn-theme-toggle:hover {
-  background: var(--input-bg);
-  border-color: var(--accent-moss);
-}
 
 
 
