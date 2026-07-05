@@ -18,6 +18,10 @@ function App() {
   const [posts, setPosts] = useState([]);
   const [isSimulated, setIsSimulated] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [isTreeShaking, setIsTreeShaking] = useState(false);
+  const [theme, setTheme] = useState(() => {
+    return localStorage.getItem("blockbuddy_theme") || "dark";
+  });
   
   // Custom toast notification system
   const [toasts, setToasts] = useState([]);
@@ -38,16 +42,87 @@ function App() {
   const [leavesParticles, setLeavesParticles] = useState([]);
   const containerRef = useRef(null);
 
-  // Initialize fireflies once to avoid re-render flicker
-  const firefliesConfig = useMemo(() => {
+  // Throttled mouse parallax listener
+  useEffect(() => {
+    // Skip on touch screens (coarse pointer) or users preferring reduced motion
+    const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    const isTouchDevice = window.matchMedia('(pointer: coarse)').matches;
+    if (prefersReducedMotion || isTouchDevice) return;
+
+    let rafId;
+    let targetX = 0;
+    let targetY = 0;
+    let currentX = 0;
+    let currentY = 0;
+
+    const handleMouseMove = (e) => {
+      const centerX = window.innerWidth / 2;
+      const centerY = window.innerHeight / 2;
+      // Normalize values from -1 to 1
+      targetX = (e.clientX - centerX) / centerX;
+      targetY = (e.clientY - centerY) / centerY;
+    };
+
+    const updateParallax = () => {
+      // Lerp (Linear Interpolation) for smoothness
+      currentX += (targetX - currentX) * 0.1;
+      currentY += (targetY - currentY) * 0.1;
+
+      if (containerRef.current) {
+        containerRef.current.style.setProperty('--parallax-x', currentX.toFixed(4));
+        containerRef.current.style.setProperty('--parallax-y', currentY.toFixed(4));
+      }
+      rafId = requestAnimationFrame(updateParallax);
+    };
+
+    window.addEventListener('mousemove', handleMouseMove);
+    rafId = requestAnimationFrame(updateParallax);
+
+    return () => {
+      window.removeEventListener('mousemove', handleMouseMove);
+      cancelAnimationFrame(rafId);
+    };
+  }, []);
+
+  // Initialize fireflies configuration with state for click capabilities
+  const [fireflies, setFireflies] = useState(() => {
     return Array.from({ length: 12 }).map((_, i) => ({
+      id: i,
       left: Math.random() * 100,
       top: Math.random() * 100,
       size: Math.random() * 3 + 3,
       duration: Math.random() * 6 + 7,
-      delay: Math.random() * -10 // negative delay so they start pre-warmed
+      delay: Math.random() * -10,
+      burst: false
     }));
-  }, []);
+  });
+
+  // Handle clicking on a firefly to make it pop and respawn
+  const handleFireflyClick = (id) => {
+    setFireflies(prev => prev.map(fly => {
+      if (fly.id === id) {
+        return { ...fly, burst: true };
+      }
+      return fly;
+    }));
+
+    setTimeout(() => {
+      setFireflies(prev => prev.map(fly => {
+        if (fly.id === id) {
+          return {
+            id,
+            left: Math.random() * 100,
+            top: Math.random() * 100,
+            size: Math.random() * 3 + 3,
+            duration: Math.random() * 6 + 7,
+            delay: 0,
+            burst: false
+          };
+        }
+        return fly;
+      }));
+    }, 400);
+  };
 
   // Compute time-of-day ambient glow color property
   const glowColor = useMemo(() => {
@@ -290,6 +365,31 @@ function App() {
     }
   };
 
+  // Click handler to shake the tree visualizer
+  const handleTreeShake = () => {
+    if (isTreeShaking) return;
+    setIsTreeShaking(true);
+    triggerLeafFall();
+    setTimeout(() => {
+      setIsTreeShaking(false);
+    }, 600);
+  };
+
+  // Keyboard helper for shaking the tree
+  const handleTreeKeyDown = (e) => {
+    if (e.key === ' ' || e.key === 'Enter') {
+      e.preventDefault();
+      handleTreeShake();
+    }
+  };
+
+  // Manual Day/Night Theme Toggle
+  const toggleTheme = () => {
+    const nextTheme = theme === "dark" ? "light" : "dark";
+    setTheme(nextTheme);
+    localStorage.setItem("blockbuddy_theme", nextTheme);
+  };
+
   // Visual leaf particles effect
   const triggerLeafFall = () => {
     const leaves = Array.from({ length: 8 }).map((_, i) => ({
@@ -323,7 +423,15 @@ function App() {
     }
 
     return (
-      <svg className="tree-svg" viewBox="0 0 320 280" role="img" aria-label="BlockBuddy growth tree">
+      <svg 
+        className={`tree-svg ${isTreeShaking ? 'shaking' : ''}`} 
+        viewBox="0 0 320 280" 
+        role="button" 
+        aria-label="Shake the tree to drop leaves" 
+        tabIndex={0}
+        onClick={handleTreeShake}
+        onKeyDown={handleTreeKeyDown}
+      >
         <defs>
           <linearGradient id="soilGrad" x1="0%" y1="0%" x2="0%" y2="100%">
             <stop offset="0%" stopColor="#3a2a1e" />
@@ -392,23 +500,28 @@ function App() {
   };
 
   return (
-    <div className="app-wrapper" ref={containerRef} style={{ '--glow-color': glowColor }}>
-      <div className="ambient-glow" />
+    <div 
+      className={`app-wrapper ${theme === "light" ? "day-theme" : ""}`} 
+      ref={containerRef} 
+      style={{ '--glow-color': glowColor }}
+    >
+      <div className="ambient-glow parallax-far" />
 
       {/* Background corner decorations */}
-      <svg className="bg-leaf-decorations bg-leaf-top-left" viewBox="0 0 100 100" aria-hidden="true">
+      <svg className="bg-leaf-decorations bg-leaf-top-left parallax-far" viewBox="0 0 100 100" aria-hidden="true">
         <path d="M50 0 C20 30 20 70 50 100 C80 70 80 30 50 0 Z" />
       </svg>
-      <svg className="bg-leaf-decorations bg-leaf-bottom-right" viewBox="0 0 100 100" aria-hidden="true">
+      <svg className="bg-leaf-decorations bg-leaf-bottom-right parallax-far" viewBox="0 0 100 100" aria-hidden="true">
         <path d="M50 0 C20 30 20 70 50 100 C80 70 80 30 50 0 Z" />
       </svg>
 
       {/* Ambient background fireflies */}
-      <div className="firefly-container" aria-hidden="true">
-        {firefliesConfig.map((fly, i) => (
+      <div className="firefly-container parallax-mid" aria-hidden="true">
+        {fireflies.map((fly) => (
           <div 
-            key={i} 
-            className="firefly" 
+            key={fly.id} 
+            className={`firefly ${fly.burst ? 'burst' : ''}`} 
+            onClick={() => handleFireflyClick(fly.id)}
             style={{
               left: `${fly.left}%`,
               top: `${fly.top}%`,
@@ -458,6 +571,16 @@ function App() {
         </div>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+          {/* Day/Night Theme Switcher Button */}
+          <button 
+            className="btn-theme-toggle" 
+            onClick={toggleTheme} 
+            aria-label={`Switch to ${theme === "dark" ? "light" : "dark"} mode`}
+            title={`Switch to ${theme === "dark" ? "light" : "dark"} mode`}
+          >
+            {theme === "dark" ? "☀️" : "🌙"}
+          </button>
+
           <div 
             className="mode-badge" 
             onClick={toggleSimulationMode} 

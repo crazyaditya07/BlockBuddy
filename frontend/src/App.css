@@ -15,6 +15,16 @@
   --transition-smooth: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
 }
 
+.app-wrapper.day-theme {
+  --bg-color: #f1f5f2;
+  --panel-bg: #e2ede5;
+  --text-main: #141716;
+  --text-muted: #5e6b63;
+  --border-color: rgba(0, 0, 0, 0.08);
+  --input-bg: #d7e5dc;
+  --accent-forest: #cce0d2;
+}
+
 * {
   box-sizing: border-box;
   margin: 0;
@@ -699,6 +709,98 @@ footer {
     transform: rotate(15deg);
   }
 }
+
+/* Mouse Parallax transform styles */
+.parallax-far {
+  transform: translate(calc(var(--parallax-x, 0) * 8px), calc(var(--parallax-y, 0) * 8px));
+  transition: transform 0.15s cubic-bezier(0.25, 0.8, 0.25, 1);
+}
+
+.parallax-mid {
+  transform: translate(calc(var(--parallax-x, 0) * 16px), calc(var(--parallax-y, 0) * 16px));
+  transition: transform 0.15s cubic-bezier(0.25, 0.8, 0.25, 1);
+}
+
+.parallax-near {
+  transform: translate(calc(var(--parallax-x, 0) * 28px), calc(var(--parallax-y, 0) * 28px));
+  transition: transform 0.15s cubic-bezier(0.25, 0.8, 0.25, 1);
+}
+
+/* Firefly Interactive states */
+.firefly {
+  cursor: pointer;
+}
+
+.firefly.burst {
+  animation: fireflyBurst 0.4s cubic-bezier(0.1, 0.8, 0.3, 1) forwards !important;
+}
+
+@keyframes fireflyBurst {
+  0% {
+    transform: scale(1);
+    opacity: 1;
+    filter: blur(0.5px) brightness(2);
+  }
+  100% {
+    transform: scale(4);
+    opacity: 0;
+    filter: blur(4px) brightness(0);
+  }
+}
+
+/* Interactive Tree Visualizer styling */
+.tree-svg {
+  cursor: pointer;
+  transition: var(--transition-smooth);
+}
+
+.tree-svg:hover {
+  filter: drop-shadow(0 0 8px rgba(82, 141, 103, 0.3));
+}
+
+.tree-svg.shaking {
+  animation: treeWiggle 0.6s ease-in-out;
+  transform-origin: bottom center;
+}
+
+@keyframes treeWiggle {
+  0%, 100% {
+    transform: rotate(0deg);
+  }
+  20% {
+    transform: rotate(-3deg) skewX(-1deg);
+  }
+  40% {
+    transform: rotate(3deg) skewX(1deg);
+  }
+  60% {
+    transform: rotate(-2deg);
+  }
+  80% {
+    transform: rotate(1.5deg);
+  }
+}
+
+/* Theme Toggle Button Style */
+.btn-theme-toggle {
+  background: transparent;
+  border: 1px solid var(--border-color);
+  color: var(--text-main);
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: var(--transition-smooth);
+}
+
+.btn-theme-toggle:hover {
+  background: var(--input-bg);
+  border-color: var(--accent-moss);
+}
+
 
 
 
