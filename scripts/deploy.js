@@ -1,23 +1,26 @@
 const hre = require("hardhat");
+const fs = require("fs");
+const path = require("path");
 
 async function main() {
+  const networkName = hre.network.name;
+  console.log(`Starting deployment to network: ${networkName}...`);
+
   // Get the smart contract factory
-  const MessageBoard = await hre.ethers.getContractFactory("PrivateMessageBoard");
+  const MessageBoard = await hre.ethers.getContractFactory("PublicMessageBoard");
   
-  // Deploy the contract to the Ganache network
+  // Deploy the contract
   const board = await MessageBoard.deploy();
   
-  // Wait for it to be deployed
+  // Wait for deployment
   await board.waitForDeployment();
   
-  // Print out the deployed address
-  console.log(`PrivateMessageBoard deployed to: ${board.target}`);
+  const deployedAddress = board.target;
+  console.log(`PublicMessageBoard deployed successfully to network "${networkName}" at address: ${deployedAddress}`);
 
   // Automatically save/update the address in the frontend/.env file
-  const fs = require("fs");
-  const path = require("path");
   const envPath = path.join(__dirname, "../frontend/.env");
-  fs.writeFileSync(envPath, `VITE_CONTRACT_ADDRESS=${board.target}\n`);
+  fs.writeFileSync(envPath, `VITE_CONTRACT_ADDRESS=${deployedAddress}\n`);
   console.log(`Saved contract address to frontend/.env`);
 }
 
