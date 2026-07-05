@@ -563,17 +563,15 @@ function App() {
 
         <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
 
-          <div 
-            className="mode-badge" 
+          <button 
+            className="btn-mode-toggle" 
             onClick={toggleSimulationMode} 
-            onKeyDown={handleSimulationModeKeyDown}
-            tabIndex={0}
-            role="button"
-            aria-label="Toggle network simulation mode"
+            aria-label={isSimulated ? "Switch to Live Blockchain Mode" : "Switch to Offline Simulation Sandbox"}
+            title={isSimulated ? "Switch to Live Blockchain Mode" : "Switch to Offline Simulation Sandbox"}
           >
             <span className={`connection-dot ${isSimulated ? '' : 'connected'}`} />
             <span>{isSimulated ? "Simulation Sandbox" : "Blockchain Connected"}</span>
-          </div>
+          </button>
 
           <button className="btn-connect" onClick={connectWallet} aria-label={account ? `Wallet connected address ${account}` : "Connect Wallet"}>
             {account ? `${account.substring(0, 6)}...${account.substring(account.length - 4)}` : "Connect Wallet"}

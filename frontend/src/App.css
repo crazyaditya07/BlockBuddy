@@ -398,23 +398,28 @@ header.zen-header {
   }
 }
 
-/* Toggle Network Mode Badge */
-.mode-badge {
+/* Toggle Network Mode Button */
+.btn-mode-toggle {
   display: inline-flex;
   align-items: center;
-  gap: 0.35rem;
-  font-size: 0.75rem;
-  padding: 0.25rem 0.6rem;
-  border-radius: 99px;
+  gap: 0.5rem;
+  font-family: var(--font-heading);
+  font-size: 0.85rem;
+  font-weight: 500;
+  padding: 0.5rem 1rem;
+  border-radius: 8px;
   background: var(--input-bg);
   border: 1px solid var(--border-color);
+  color: var(--text-main);
   cursor: pointer;
   user-select: none;
   transition: var(--transition-smooth);
 }
 
-.mode-badge:hover {
-  border-color: var(--accent-moss);
+.btn-mode-toggle:hover {
+  background: var(--panel-bg);
+  border-color: var(--accent-light);
+  transform: translateY(-1px);
 }
 
 /* falling leaf animation element */
