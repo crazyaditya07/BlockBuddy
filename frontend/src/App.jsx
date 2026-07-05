@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import { ethers } from 'ethers';
 import './App.css';
 
@@ -37,6 +37,40 @@ function App() {
 
   const [leavesParticles, setLeavesParticles] = useState([]);
   const containerRef = useRef(null);
+
+  // Initialize fireflies once to avoid re-render flicker
+  const firefliesConfig = useMemo(() => {
+    return Array.from({ length: 12 }).map((_, i) => ({
+      left: Math.random() * 100,
+      top: Math.random() * 100,
+      size: Math.random() * 3 + 3,
+      duration: Math.random() * 6 + 7,
+      delay: Math.random() * -10 // negative delay so they start pre-warmed
+    }));
+  }, []);
+
+  // Compute time-of-day ambient glow color property
+  const glowColor = useMemo(() => {
+    const hours = new Date().getHours();
+    if (hours >= 20 || hours < 5) {
+      return "rgba(62, 97, 107, 0.15)"; // cooler blue-green at night
+    } else {
+      return "rgba(82, 141, 103, 0.12)"; // warmer amber-green in day
+    }
+  }, []);
+
+  // Generate deterministic color based on sender address
+  const getSenderColor = (address) => {
+    if (!address) return "var(--accent-light)";
+    let hash = 0;
+    const cleanAddr = address.toLowerCase();
+    for (let i = 0; i < cleanAddr.length; i++) {
+      hash = cleanAddr.charCodeAt(i) + ((hash << 5) - hash);
+    }
+    // Map to HSL hue spectrum (75 to 175) for jungle greens/teals/limes
+    const hue = Math.abs(hash % 100) + 75;
+    return `hsl(${hue}, 55%, 55%)`;
+  };
 
   // Load initial simulated posts if any
   useEffect(() => {
@@ -122,7 +156,6 @@ function App() {
       const loadedPosts = [];
       const batchSize = 50;
       
-      // Fetch in batches of 50
       for (let start = 0; start < count; start += batchSize) {
         const batch = await contract.getMessages(start, batchSize);
         for (const item of batch) {
@@ -134,7 +167,6 @@ function App() {
         }
       }
       
-      // Sort newest first
       loadedPosts.sort((a, b) => b.timestamp - a.timestamp);
       setPosts(loadedPosts);
     } catch (error) {
@@ -182,6 +214,14 @@ function App() {
       setAccount(null);
       setPosts([]);
       connectWallet();
+    }
+  };
+
+  // Keyboard support for simulation mode toggle
+  const handleSimulationModeKeyDown = (e) => {
+    if (e.key === ' ' || e.key === 'Enter') {
+      e.preventDefault();
+      toggleSimulationMode();
     }
   };
 
@@ -284,8 +324,25 @@ function App() {
 
     return (
       <svg className="tree-svg" viewBox="0 0 320 280" role="img" aria-label="BlockBuddy growth tree">
-        <line x1="20" y1="270" x2="300" y2="270" stroke="rgba(255,255,255,0.15)" strokeWidth="2" strokeDasharray="5,5" />
+        <defs>
+          <linearGradient id="soilGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+            <stop offset="0%" stopColor="#3a2a1e" />
+            <stop offset="100%" stopColor="transparent" stopOpacity="0" />
+          </linearGradient>
+        </defs>
+
+        {/* Soil strip instead of dashed line */}
+        <rect x="20" y="270" width="280" height="8" rx="4" fill="url(#soilGrad)" />
         
+        {/* Soil decorations */}
+        <ellipse cx="60" cy="270" rx="5" ry="2.5" fill="#4a3e3d" />
+        <ellipse cx="250" cy="270" rx="7" ry="3" fill="#3c3433" />
+        <path d="M 95 270 Q 93 262 88 260 M 95 270 Q 97 263 102 261 M 95 270 Q 95 261 95 257" stroke="var(--accent-moss)" strokeWidth="1" fill="none" />
+        
+        {/* Tiny mushroom detail */}
+        <path d="M 200 270 Q 200 264 200 264" stroke="#8c7a6b" strokeWidth="2" strokeLinecap="round" />
+        <path d="M 197 264 Q 200 260 203 264 Z" fill="#b91c1c" />
+
         {count > 0 && (
           <path d="M 160 270 Q 145 278 120 278 M 160 270 Q 175 278 200 278" stroke="var(--text-muted)" strokeWidth="2" fill="none" opacity="0.6" />
         )}
@@ -301,25 +358,28 @@ function App() {
         
         {treeStages.branchCount > 0 && (
           <>
-            <path d={`M 160 ${240 - treeStages.trunkHeight/3} Q 130 ${200 - treeStages.trunkHeight/2} 110 ${180 - treeStages.trunkHeight/2}`} className="branch" strokeWidth="3" fill="none" />
-            <path d={`M 160 ${220 - treeStages.trunkHeight/2} Q 190 ${180 - treeStages.trunkHeight/2} 210 ${160 - treeStages.trunkHeight/2}`} className="branch" strokeWidth="2.5" fill="none" />
+            <path key={`b1-${count}`} d={`M 160 ${240 - treeStages.trunkHeight/3} Q 130 ${200 - treeStages.trunkHeight/2} 110 ${180 - treeStages.trunkHeight/2}`} className="branch sprout-item" strokeWidth="3" fill="none" />
+            <path key={`b2-${count}`} d={`M 160 ${220 - treeStages.trunkHeight/2} Q 190 ${180 - treeStages.trunkHeight/2} 210 ${160 - treeStages.trunkHeight/2}`} className="branch sprout-item" strokeWidth="2.5" fill="none" />
           </>
         )}
         {treeStages.branchCount > 3 && (
           <>
-            <path d={`M 160 ${200 - treeStages.trunkHeight/1.5} Q 140 ${160 - treeStages.trunkHeight/1.5} 125 ${140 - treeStages.trunkHeight/1.5}`} className="branch" strokeWidth="2" fill="none" />
-            <path d={`M 160 ${190 - treeStages.trunkHeight/1.5} Q 180 ${150 - treeStages.trunkHeight/1.5} 195 ${130 - treeStages.trunkHeight/1.5}`} className="branch" strokeWidth="2" fill="none" />
+            <path key={`b3-${count}`} d={`M 160 ${200 - treeStages.trunkHeight/1.5} Q 140 ${160 - treeStages.trunkHeight/1.5} 125 ${140 - treeStages.trunkHeight/1.5}`} className="branch sprout-item" strokeWidth="2" fill="none" />
+            <path key={`b4-${count}`} d={`M 160 ${190 - treeStages.trunkHeight/1.5} Q 180 ${150 - treeStages.trunkHeight/1.5} 195 ${130 - treeStages.trunkHeight/1.5}`} className="branch sprout-item" strokeWidth="2" fill="none" />
           </>
         )}
 
         {leaves.map((l) => (
           <path 
-            key={l.id}
+            key={`leaf-${l.id}`}
             d={`M ${l.cx} ${l.cy} C ${l.cx - 8} ${l.cy - 12}, ${l.cx + 8} ${l.cy - 12}, ${l.cx} ${l.cy}`}
-            className="leaf" 
+            className="leaf sprout-item" 
             title={`Leaf #${l.id + 1}`}
           />
         ))}
+
+        {/* Orbiting firefly for canopy life */}
+        <circle cx="160" cy="140" r="3" className="tree-orbiting-firefly" />
 
         {count === 0 && (
           <g>
@@ -332,11 +392,37 @@ function App() {
   };
 
   return (
-    <div className="app-wrapper" ref={containerRef}>
+    <div className="app-wrapper" ref={containerRef} style={{ '--glow-color': glowColor }}>
       <div className="ambient-glow" />
 
+      {/* Background corner decorations */}
+      <svg className="bg-leaf-decorations bg-leaf-top-left" viewBox="0 0 100 100" aria-hidden="true">
+        <path d="M50 0 C20 30 20 70 50 100 C80 70 80 30 50 0 Z" />
+      </svg>
+      <svg className="bg-leaf-decorations bg-leaf-bottom-right" viewBox="0 0 100 100" aria-hidden="true">
+        <path d="M50 0 C20 30 20 70 50 100 C80 70 80 30 50 0 Z" />
+      </svg>
+
+      {/* Ambient background fireflies */}
+      <div className="firefly-container" aria-hidden="true">
+        {firefliesConfig.map((fly, i) => (
+          <div 
+            key={i} 
+            className="firefly" 
+            style={{
+              left: `${fly.left}%`,
+              top: `${fly.top}%`,
+              width: `${fly.size}px`,
+              height: `${fly.size}px`,
+              animationDuration: `${fly.duration}s`,
+              animationDelay: `${fly.delay}s`
+            }}
+          />
+        ))}
+      </div>
+
       {/* Toast banner Notifications */}
-      <div className="toasts-container">
+      <div className="toasts-container" role="status" aria-live="polite">
         {toasts.map(t => (
           <div key={t.id} className={`toast toast-${t.type}`}>
             <span>{t.type === "success" ? "🌱" : t.type === "error" ? "⚠️" : "ℹ️"}</span>
@@ -356,6 +442,7 @@ function App() {
             transform: `rotate(${leaf.rotate}deg)`
           }}
           viewBox="0 0 24 24"
+          aria-hidden="true"
         >
           <path d="M12 2C12 2 4 10 4 14C4 18.42 7.58 22 12 22C16.42 22 20 18.42 20 14C20 10 12 2 12 2Z" fill="var(--accent-moss)" />
         </svg>
@@ -363,7 +450,7 @@ function App() {
 
       <header className="zen-header">
         <div className="brand-section">
-          <span className="brand-logo">🌿</span>
+          <span className="brand-logo" role="img" aria-label="sprout">🌿</span>
           <div>
             <h1 className="brand-name">BlockBuddy</h1>
             <span className="brand-tagline">decentralized bulletin board</span>
@@ -371,7 +458,14 @@ function App() {
         </div>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-          <div className="mode-badge" onClick={toggleSimulationMode} aria-label="Toggle network simulation mode">
+          <div 
+            className="mode-badge" 
+            onClick={toggleSimulationMode} 
+            onKeyDown={handleSimulationModeKeyDown}
+            tabIndex={0}
+            role="button"
+            aria-label="Toggle network simulation mode"
+          >
             <span className={`connection-dot ${isSimulated ? '' : 'connected'}`} />
             <span>{isSimulated ? "Simulation Sandbox" : "Blockchain Connected"}</span>
           </div>
@@ -405,7 +499,7 @@ function App() {
                   {message.length}/280 characters
                 </span>
                 <button className="btn-post" onClick={handlePost} disabled={isLoading || !message.trim()}>
-                  {isLoading ? "Mining..." : "Plant Message 🌱"}
+                  <span>{isLoading ? "Mining..." : "Plant Message 🌱"}</span>
                 </button>
               </div>
             </div>
@@ -454,10 +548,18 @@ function App() {
                 <>
                   {posts.slice(0, visibleCount).map((post, idx) => {
                     const isOwn = post.sender.toLowerCase() === account?.toLowerCase();
+                    const senderColor = getSenderColor(post.sender);
                     return (
-                      <div className={`message-card ${isOwn ? 'own-message' : ''}`} key={idx}>
+                      <div 
+                        className={`message-card ${isOwn ? 'own-message' : ''} ${idx === 0 ? 'new-arrival' : ''}`} 
+                        key={idx}
+                        style={{ borderLeft: `4px solid ${senderColor}` }}
+                      >
                         <div className="card-header">
-                          <span className="sender-address">
+                          <span className="sender-address" style={{ color: senderColor }}>
+                            <svg style={{ width: '8px', height: '8px', fill: senderColor, marginRight: '4px', verticalAlign: 'middle' }} viewBox="0 0 24 24" aria-hidden="true">
+                              <path d="M12 2C12 2 4 10 4 14C4 18.42 7.58 22 12 22C16.42 22 20 18.42 20 14C20 10 12 2 12 2Z" />
+                            </svg>
                             {post.sender.substring(0, 8)}...{post.sender.substring(post.sender.length - 6)}
                           </span>
                           <span className="post-time">
