@@ -1,7 +1,7 @@
 {
-  "name": "task-4-private-blockchain",
+  "name": "blockbuddy",
   "version": "1.0.0",
-  "description": "A private blockchain setup using Ganache with a simple message board app",
+  "description": "A decentralized Bulletin Board and Zen Garden built with Solidity, React, and Hardhat",
   "main": "index.js",
   "scripts": {
     "test": "npx hardhat test"
