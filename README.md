@@ -70,13 +70,16 @@ Every post is capped at 280 characters on-chain (not just in the UI — try to b
 
 ## 🚀 Running it locally
 
-**Local sandbox (Ganache):**
+**Local network node (Hardhat):**
 ```bash
-# 1. Install and deploy the contract
-npm install
-npx hardhat run scripts/deploy.js --network ganache
+# 1. Start the local node
+npx hardhat node
 
-# 2. Run the frontend
+# 2. In another terminal, deploy the contract
+npm install
+npx hardhat run scripts/deploy.js --network localhost
+
+# 3. Run the frontend
 cd frontend
 npm install
 npm run dev
