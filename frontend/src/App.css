@@ -685,20 +685,7 @@ footer {
   }
 }
 
-/* Hover micro-interactions */
-.btn-post:hover span {
-  display: inline-block;
-  animation: leafWiggle 0.5s ease-in-out infinite alternate;
-}
 
-@keyframes leafWiggle {
-  0% {
-    transform: rotate(-15deg);
-  }
-  100% {
-    transform: rotate(15deg);
-  }
-}
 
 /* Mouse Parallax transform styles */
 .parallax-far {
