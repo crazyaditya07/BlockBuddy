@@ -2,7 +2,6 @@
 
 BlockBuddy is a decentralized message board dApp that combines blockchain storage with a calming, interactive Zen Garden theme. As users post immutable messages to the blockchain, a digital tree grows branches and leaves in real-time, visualizing the community's expanding voice.
 
-![BlockBuddy UI](docs/blockbuddy_ui.png)
 
 ## 🔗 Live Demo
 * **Frontend Web App**: [https://blockbuddy-rust.vercel.app/](https://blockbuddy-rust.vercel.app/) *(Placeholder: Replace with your actual deployed Vercel URL)*
