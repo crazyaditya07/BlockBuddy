@@ -5,10 +5,6 @@
 Every message you post gets written permanently to the blockchain — and every message makes your tree a little bigger. Post enough, and a lone seedling becomes a canopy. It's Web3 without the jargon: connect a wallet (or don't — there's a full offline sandbox), write something, and watch it take root.
 
 <p align="center">
-  <img src="docs/blockbuddy_ui.png" alt="BlockBuddy interface showing the message board and growing tree visualizer" width="800"/>
-</p>
-
-<p align="center">
   <a href="https://opensource.org/licenses/MIT"><img src="https://img.shields.io/badge/License-MIT-yellow.svg" alt="License: MIT"></a>
   <img src="https://img.shields.io/badge/Solidity-0.8.20-363636?logo=solidity" alt="Solidity 0.8.20">
   <img src="https://img.shields.io/badge/React-18-61DAFB?logo=react&logoColor=black" alt="React 18">
