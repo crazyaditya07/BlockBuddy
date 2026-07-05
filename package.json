@@ -1,0 +1,13 @@
+{
+  "name": "task-4-private-blockchain",
+  "version": "1.0.0",
+  "description": "A private blockchain setup using Ganache with a simple message board app",
+  "main": "index.js",
+  "scripts": {
+    "test": "npx hardhat test"
+  },
+  "devDependencies": {
+    "hardhat": "^2.19.0",
+    "@nomicfoundation/hardhat-toolbox": "^4.0.0"
+  }
+}
