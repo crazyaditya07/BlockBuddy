@@ -229,6 +229,16 @@ function App() {
     setIsLoading(true);
     try {
       const provider = new ethers.BrowserProvider(window.ethereum);
+      
+      // Verify if a contract is actually deployed at this address on this network
+      const code = await provider.getCode(currentAddress);
+      if (code === "0x" || code === "0x0") {
+        console.warn(`No contract code at address ${currentAddress} on the active network.`);
+        showToast("Contract not found on the active network. Please verify MetaMask network settings.", "error");
+        setIsLoading(false);
+        return;
+      }
+
       const contract = new ethers.Contract(currentAddress, contractABI, provider);
       const countBig = await contract.getMessageCount();
       const count = Number(countBig);
