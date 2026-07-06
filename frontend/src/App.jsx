@@ -167,6 +167,14 @@ function App() {
     }
   }, []);
 
+  // Sync currentAddress with contractAddress if the environment variable changes (e.g. on redeploy)
+  useEffect(() => {
+    if (contractAddress && ethers.isAddress(contractAddress)) {
+      setCurrentAddress(contractAddress);
+      localStorage.setItem("blockbuddy_contract_address", contractAddress);
+    }
+  }, [contractAddress]);
+
   // Connect check
   const checkConnection = async () => {
     if (window.ethereum && !isSimulated) {
