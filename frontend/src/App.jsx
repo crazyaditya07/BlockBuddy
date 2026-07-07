@@ -12,23 +12,14 @@ const contractABI = [
   "function getMessages(uint256 start, uint256 count) public view returns ((address sender, string content, uint256 timestamp, int256 parentIndex)[])"
 ];
 
-const dandelionPlants = [
-  { height: 42, angle: -3, left: 6, delay: "-0.5s", duration: "4.8s" },
-  { height: 48, angle: 2, left: 13, delay: "-1.2s", duration: "5.5s" },
-  { height: 35, angle: -1, left: 20, delay: "-2.5s", duration: "3.9s" },
-  { height: 50, angle: 4, left: 27, delay: "-0.8s", duration: "4.5s" },
-  { height: 38, angle: -3, left: 34, delay: "-1.7s", duration: "5.2s" },
-  { height: 46, angle: 2, left: 40, delay: "-3.1s", duration: "4.2s" },
-  { height: 32, angle: 1, left: 47, delay: "-2.1s", duration: "4.7s" },
-  { height: 52, angle: -2, left: 53, delay: "-0.3s", duration: "5.0s" },
-  { height: 40, angle: 3, left: 60, delay: "-1.9s", duration: "4.3s" },
-  { height: 47, angle: -4, left: 66, delay: "-2.8s", duration: "5.6s" },
-  { height: 36, angle: 1, left: 72, delay: "-0.7s", duration: "3.8s" },
-  { height: 49, angle: 4, left: 78, delay: "-1.4s", duration: "4.9s" },
-  { height: 44, angle: -2, left: 84, delay: "-3.3s", duration: "5.1s" },
-  { height: 33, angle: 2, left: 90, delay: "-2.2s", duration: "4.1s" },
-  { height: 41, angle: -3, left: 95, delay: "-1.1s", duration: "4.6s" }
-];
+const dandelionPlants = Array.from({ length: 50 }).map((_, i) => {
+  const left = 2 + (i * 1.9) + (Math.random() * 0.6 - 0.3);
+  const height = 28 + (i % 5) * 4.5 + Math.random() * 2.5;
+  const angle = (i % 2 === 0 ? -1 : 1) * (1.5 + Math.random() * 2);
+  const delay = `-${(Math.random() * 3).toFixed(1)}s`;
+  const duration = `${(3.5 + Math.random() * 2).toFixed(1)}s`;
+  return { left: Math.min(Math.max(left, 1), 99), height, angle, delay, duration };
+});
 
 function App() {
   const [account, setAccount] = useState(null);
@@ -71,6 +62,7 @@ function App() {
 
   const [leavesParticles, setLeavesParticles] = useState([]);
   const containerRef = useRef(null);
+  const patchRef = useRef(null);
 
   // Throttled mouse parallax listener
   useEffect(() => {
@@ -196,32 +188,40 @@ function App() {
 
     setFieldState("dispersing");
 
-    // Generate drifting elements for 15 plants x 8 spokes = 120 filaments
+    const rect = patchRef.current ? patchRef.current.getBoundingClientRect() : { left: 0, top: 0, width: 0 };
+
+    // Generate drifting elements for 50 plants x 5 spokes = 250 filaments
     const tempSeeds = [];
     let idCounter = 0;
 
-    // 15 Dandelions
-    for (let p = 0; p < 15; p++) {
-      // 8 Spokes/seeds per dandelion
-      for (let s = 0; s < 8; s++) {
-        const id = Date.now() + idCounter++;
-        const baseAngleDeg = -60; // mostly up-and-rightward
-        const angleVariance = 28; // ±28 degrees variance
-        const angle = (baseAngleDeg + (Math.random() * 2 - 1) * angleVariance) * (Math.PI / 180);
-        const distance = 160 + Math.random() * 140; // 160px to 300px
-        const targetX = Math.cos(angle) * distance;
-        const targetY = Math.sin(angle) * distance;
+    // 50 Dandelions
+    for (let p = 0; p < 50; p++) {
+      const plant = dandelionPlants[p];
+      const centerX = rect.left + (plant.left / 100) * rect.width;
+      const centerY = rect.top + 70 - plant.height;
 
-        const durationMs = 1400 + Math.random() * 600; // 1.4s to 2.0s
-        const delayMs = (p * 50) + (s * 70) + (Math.random() * 120); // staggered starting times
+      // 5 Spokes/seeds per dandelion (angled 0, 72, 144, 216, 288 degrees)
+      for (let s = 0; s < 5; s++) {
+        const id = Date.now() + idCounter++;
+        
+        // Target coordinates randomly fanning out to the whole screen (mostly up/right)
+        const destX = Math.random() * window.innerWidth;
+        const destY = Math.random() * window.innerHeight * 0.7;
+        const targetX = destX - centerX;
+        const targetY = destY - centerY;
+
+        const durationMs = 1500 + Math.random() * 800; // 1.5s to 2.3s
+        const delayMs = (p * 25) + (s * 50) + (Math.random() * 100); // staggered starting times
 
         tempSeeds.push({
           id,
           type: "spoke",
           plantIndex: p,
           spokeIndex: s,
-          targetX: `${targetX.toFixed(2)}px`,
-          targetY: `${targetY.toFixed(2)}px`,
+          startX: `${centerX.toFixed(1)}px`,
+          startY: `${centerY.toFixed(1)}px`,
+          targetX: `${targetX.toFixed(1)}px`,
+          targetY: `${targetY.toFixed(1)}px`,
           durationMs,
           delayMs,
           scale: Math.random() * 0.3 + 0.8
@@ -230,26 +230,30 @@ function App() {
     }
 
     // Add 3-4 fireflies
-    const fireflyCount = Math.floor(Math.random() * 2) + 3; // 3 to 4 fireflies
+    const fireflyCount = Math.floor(Math.random() * 2) + 3;
     for (let f = 0; f < fireflyCount; f++) {
       const id = Date.now() + idCounter++;
-      const baseAngleDeg = -60;
-      const angleVariance = 45; // wider variance for fireflies
-      const angle = (baseAngleDeg + (Math.random() * 2 - 1) * angleVariance) * (Math.PI / 180);
-      const distance = 200 + Math.random() * 150; // drift further
-      const targetX = Math.cos(angle) * distance;
-      const targetY = Math.sin(angle) * distance;
+      
+      const startX = rect.left + (0.3 + Math.random() * 0.4) * rect.width;
+      const startY = rect.top + 30;
 
-      const durationMs = 1800 + Math.random() * 700;
-      const delayMs = Math.random() * 600; // start early
+      const destX = Math.random() * window.innerWidth;
+      const destY = Math.random() * window.innerHeight * 0.6;
+      const targetX = destX - startX;
+      const targetY = destY - startY;
+
+      const durationMs = 2000 + Math.random() * 800;
+      const delayMs = Math.random() * 500;
 
       tempSeeds.push({
         id,
         type: "firefly",
         plantIndex: -1,
         spokeIndex: f,
-        targetX: `${targetX.toFixed(2)}px`,
-        targetY: `${targetY.toFixed(2)}px`,
+        startX: `${startX.toFixed(1)}px`,
+        startY: `${startY.toFixed(1)}px`,
+        targetX: `${targetX.toFixed(1)}px`,
+        targetY: `${targetY.toFixed(1)}px`,
         durationMs,
         delayMs,
         scale: Math.random() * 0.4 + 0.8
@@ -1004,6 +1008,7 @@ function App() {
 
             {/* Dandelion Field Patch */}
             <div 
+              ref={patchRef}
               className={`dandelion-field-patch ${fieldState === 'dispersing' ? 'dispersing-reduced' : ''} ${fieldState === 'regrowing' ? 'regrowing-reduced' : ''}`}
               role="button"
               tabIndex={0}
@@ -1050,13 +1055,13 @@ function App() {
                 </svg>
               ))}
 
-              {/* 15 Dandelion Plants */}
+              {/* 50 Dandelion Plants */}
               {dandelionPlants.map((plant, pIdx) => {
                 const showHead = fieldState === 'idle' || fieldState === 'regrowing';
                 const isRegrowing = fieldState === 'regrowing';
                 
-                // Calculate spokes
-                const spokeAngles = [0, 45, 90, 135, 180, 225, 270, 315];
+                // Calculate 5 spokes
+                const spokeAngles = [0, 72, 144, 216, 288];
                 
                 return (
                   <div 
@@ -1121,22 +1126,14 @@ function App() {
               {/* Drifting filaments and fireflies */}
               {driftingSeeds.map(b => {
                 if (b.type === 'spoke') {
-                  const plant = dandelionPlants[b.plantIndex];
-                  const angleRad = (b.spokeIndex * 45) * (Math.PI / 180);
-                  const xOffset = Math.cos(angleRad) * 6.5;
-                  const yOffset = Math.sin(angleRad) * 6.5;
-                  
-                  // Exact anchor point at the top of the stem
-                  const startX = `calc(${plant.left}% + 8px + ${xOffset}px)`;
-                  const startY = `calc(100% - 6px - ${plant.height}px + 8px + ${yOffset}px)`;
-                  
                   return (
                     <svg 
                       key={b.id}
                       className="drifting-element drifting-seed"
                       style={{
-                        left: startX,
-                        top: startY,
+                        position: 'fixed',
+                        left: b.startX,
+                        top: b.startY,
                         width: '12px',
                         height: '12px',
                         '--target-x': b.targetX,
@@ -1144,33 +1141,32 @@ function App() {
                         '--drift-duration': `${b.durationMs}ms`,
                         animationDelay: `${b.delayMs}ms`,
                         transform: `scale(${b.scale})`,
-                        pointerEvents: 'none'
+                        pointerEvents: 'none',
+                        zIndex: 99999
                       }}
                       viewBox="0 0 12 12"
                     >
-                      {/* Radiating spoke shape representing detaching filament */}
                       <line x1="6" y1="6" x2="6" y2="0" />
                       <line x1="6" y1="6" x2="2" y2="2" />
                       <line x1="6" y1="6" x2="10" y2="2" />
                     </svg>
                   );
                 } else {
-                  // Firefly drifting element
-                  const startX = `${25 + Math.random() * 50}%`;
-                  const startY = `calc(100% - 20px)`;
                   return (
                     <div 
                       key={b.id}
                       className="drifting-element drifting-firefly"
                       style={{
-                        left: startX,
-                        top: startY,
+                        position: 'fixed',
+                        left: b.startX,
+                        top: b.startY,
                         '--target-x': b.targetX,
                         '--target-y': b.targetY,
                         '--drift-duration': `${b.durationMs}ms`,
                         animationDelay: `${b.delayMs}ms`,
                         transform: `scale(${b.scale})`,
-                        pointerEvents: 'none'
+                        pointerEvents: 'none',
+                        zIndex: 99999
                       }}
                     />
                   );
