@@ -26,9 +26,10 @@ function App() {
     return stored === null ? true : stored === "true";
   });
 
-  // Sleeping Fox states
-  const [isFoxTwitching, setIsFoxTwitching] = useState(false);
-  const [isFoxStartled, setIsFoxStartled] = useState(false);
+  // Nature cluster & burst states
+  const [isBursting, setIsBursting] = useState(false);
+  const [isPulseMotion, setIsPulseMotion] = useState(false);
+  const [burstParticles, setBurstParticles] = useState([]);
 
   // Custom states for replies
   const [replyingTo, setReplyingTo] = useState(null);
@@ -157,16 +158,50 @@ function App() {
     }
   }, [contractAddress]);
 
-  // Trigger sleeping fox twitch when the message count changes (a new message is posted)
-  useEffect(() => {
-    if (posts.length > 0) {
-      setIsFoxTwitching(true);
-      const timer = setTimeout(() => {
-        setIsFoxTwitching(false);
-      }, 300);
-      return () => clearTimeout(timer);
+  const handleTriggerBurst = () => {
+    if (isBursting) return;
+
+    const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    if (prefersReducedMotion) {
+      setIsPulseMotion(true);
+      setTimeout(() => {
+        setIsPulseMotion(false);
+      }, 600);
+      return;
     }
-  }, [posts.length]);
+
+    setIsBursting(true);
+
+    // Approximate cluster origin: bottom-right area of screen
+    const particles = Array.from({ length: 25 }).map((_, i) => {
+      const isCotton = i % 2 === 0;
+      return {
+        id: Date.now() + i,
+        type: isCotton ? 'cotton' : 'firefly',
+        originX: 'calc(100vw - 120px)',
+        originY: 'calc(100vh - 120px)',
+        targetX: `${Math.random() * 90 + 5}vw`,
+        targetY: `${Math.random() * 90 + 5}vh`,
+        targetScale: Math.random() * 1.5 + 0.5,
+        duration: `${Math.random() * 1.0 + 1.2}s`,
+        delay: `${Math.random() * 0.4}s`
+      };
+    });
+
+    setBurstParticles(particles);
+
+    setTimeout(() => {
+      setBurstParticles([]);
+      setIsBursting(false);
+    }, 2600);
+  };
+
+  const handleClusterKeyDown = (e) => {
+    if (e.key === ' ' || e.key === 'Enter') {
+      e.preventDefault();
+      handleTriggerBurst();
+    }
+  };
 
   const toggleLegend = () => {
     const nextVal = !isLegendOpen;
@@ -178,21 +213,6 @@ function App() {
     if (e.key === ' ' || e.key === 'Enter') {
       e.preventDefault();
       toggleLegend();
-    }
-  };
-
-  const handleFoxClick = () => {
-    if (isFoxStartled) return;
-    setIsFoxStartled(true);
-    const timer = setTimeout(() => {
-      setIsFoxStartled(false);
-    }, 1000);
-  };
-
-  const handleFoxKeyDown = (e) => {
-    if (e.key === ' ' || e.key === 'Enter') {
-      e.preventDefault();
-      handleFoxClick();
     }
   };
 
@@ -849,37 +869,32 @@ function App() {
             <div className="tree-container" style={{ position: 'relative' }}>
               {renderTreeSVG()}
               
-              {/* Sleeping Fox creature decoration */}
+              {/* Cotton & Firefly Nature Cluster */}
               <div 
-                className="fox-wrapper"
+                className={`nature-cluster ${isPulseMotion ? 'pulse-motion' : ''}`}
                 role="button"
                 tabIndex={0}
-                onClick={handleFoxClick}
-                onKeyDown={handleFoxKeyDown}
-                aria-label="A sleeping fox curled near the base of the tree. Click to startle it."
+                onClick={handleTriggerBurst}
+                onKeyDown={handleClusterKeyDown}
+                aria-label="Release the pollen and fireflies burst"
+                title="Release the pollen and fireflies burst"
               >
-                <svg 
-                  viewBox="0 0 100 100" 
-                  className={`fox-svg ${isFoxTwitching ? 'twitching' : ''} ${isFoxStartled ? 'startled' : ''}`}
-                >
-                  {/* Curled Body */}
-                  <path d="M75,50 C75,69.3 59.3,85 40,85 C20.7,85 5,69.3 5,50 C5,30.7 20.7,15 40,15 C52.5,15 63.5,21.5 69.5,31 C73,36.5 75,43 75,50 Z" />
-                  {/* Left Ear */}
-                  <path d="M22,28 L15,10 L30,22 Z" />
-                  {/* Right Ear */}
-                  <path d="M38,25 L45,6 L48,22 Z" />
-                  {/* Snout */}
-                  <path d="M25,48 L12,46 L21,38 Z" />
-                  {/* Fluffy Tail */}
-                  <path d="M60,35 C75,38 85,50 85,62 C85,76 70,85 55,85 C46,85 48,80 55,80 C67,80 77,72 77,62 C77,54 70,45 58,42 Z" />
-                  {/* Sleeping eye path */}
-                  {!isFoxStartled ? (
-                    <path d="M25,40 Q30,44 35,40" stroke="var(--bg-color)" strokeWidth="2.5" fill="none" strokeLinecap="round" />
-                  ) : (
-                    /* Startled open eye */
-                    <circle cx="30" cy="38" r="3.5" fill="var(--bg-color)" />
-                  )}
-                </svg>
+                {/* Only render idle particles when NOT bursting */}
+                {!isBursting && (
+                  <>
+                    {/* 5 Cotton puffs */}
+                    <div className="cotton-puff" style={{ width: '12px', height: '12px', top: '25%', left: '30%', '--drift-x': '4px', '--drift-y': '-6px', animationDelay: '0s' }} />
+                    <div className="cotton-puff" style={{ width: '10px', height: '10px', top: '40%', left: '50%', '--drift-x': '-5px', '--drift-y': '5px', animationDelay: '-1s' }} />
+                    <div className="cotton-puff" style={{ width: '14px', height: '14px', top: '55%', left: '25%', '--drift-x': '6px', '--drift-y': '-4px', animationDelay: '-2s' }} />
+                    <div className="cotton-puff" style={{ width: '9px', height: '9px', top: '20%', left: '60%', '--drift-x': '-3px', '--drift-y': '-7px', animationDelay: '-3s' }} />
+                    <div className="cotton-puff" style={{ width: '11px', height: '11px', top: '65%', left: '45%', '--drift-x': '5px', '--drift-y': '6px', animationDelay: '-1.5s' }} />
+
+                    {/* 3 Cluster fireflies */}
+                    <div className="nature-firefly" style={{ width: '4px', height: '4px', top: '35%', left: '40%', '--drift-x': '-6px', '--drift-y': '8px', animationDelay: '0s' }} />
+                    <div className="nature-firefly" style={{ width: '5px', height: '5px', top: '50%', left: '35%', '--drift-x': '7px', '--drift-y': '-5px', animationDelay: '-0.7s' }} />
+                    <div className="nature-firefly" style={{ width: '4px', height: '4px', top: '30%', left: '55%', '--drift-x': '-5px', '--drift-y': '-6px', animationDelay: '-1.4s' }} />
+                  </>
+                )}
               </div>
             </div>
 
@@ -941,6 +956,29 @@ function App() {
           BlockBuddy Blockchain Message Board • Powered by Hardhat, React • <span style={{ cursor: 'pointer', textDecoration: 'underline' }} onClick={toggleSimulationMode}>Toggle Simulator</span>
         </p>
       </footer>
+
+      {/* Full-Screen Burst Particles Overlay */}
+      {burstParticles.length > 0 && (
+        <div className="burst-overlay">
+          {burstParticles.map(p => (
+            <div 
+              key={p.id}
+              className={`burst-particle ${p.type}`}
+              style={{
+                width: p.type === 'cotton' ? `${Math.random() * 8 + 8}px` : `${Math.random() * 2 + 4}px`,
+                height: p.type === 'cotton' ? `${Math.random() * 8 + 8}px` : `${Math.random() * 2 + 4}px`,
+                '--origin-x': p.originX,
+                '--origin-y': p.originY,
+                '--target-x': p.targetX,
+                '--target-y': p.targetY,
+                '--target-scale': p.targetScale,
+                '--burst-duration': p.duration,
+                animationDelay: p.delay
+              }}
+            />
+          ))}
+        </div>
+      )}
     </div>
   );
 }
