@@ -920,7 +920,7 @@ function App() {
                 </div>
                 <div className="legend-row">
                   <span className="legend-icon" role="img" aria-label="sparkles">✨</span>
-                  <span>Fireflies drift around. Try clicking them to pop!</span>
+                  <span>Fireflies drift around to provide calming ambient light.</span>
                 </div>
                 <div className="legend-row">
                   <span className="legend-icon" role="img" aria-label="leaf">🍃</span>
