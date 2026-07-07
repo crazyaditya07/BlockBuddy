@@ -12,6 +12,16 @@ const contractABI = [
   "function getMessages(uint256 start, uint256 count) public view returns ((address sender, string content, uint256 timestamp, int256 parentIndex)[])"
 ];
 
+const cottonPlants = [
+  { height: 45, angle: -4, left: 12, delay: "-0.5s", duration: "4.8s", bolls: [{x: -3, y: -45}, {x: 6, y: -38}, {x: -1, y: -52}] },
+  { height: 55, angle: 3, left: 24, delay: "-1.2s", duration: "5.5s", bolls: [{x: -4, y: -55}, {x: 5, y: -48}, {x: 0, y: -62}] },
+  { height: 38, angle: -2, left: 37, delay: "-2.5s", duration: "3.9s", bolls: [{x: -2, y: -38}, {x: 4, y: -32}, {x: 1, y: -44}] },
+  { height: 50, angle: 5, left: 50, delay: "-0.8s", duration: "4.5s", bolls: [{x: -3, y: -50}, {x: 6, y: -43}, {x: -1, y: -57}] },
+  { height: 42, angle: -5, left: 63, delay: "-1.7s", duration: "5.2s", bolls: [{x: -3, y: -42}, {x: 5, y: -35}, {x: 0, y: -48}] },
+  { height: 52, angle: 2, left: 75, delay: "-3.1s", duration: "4.2s", bolls: [{x: -4, y: -52}, {x: 6, y: -45}, {x: -1, y: -59}] },
+  { height: 40, angle: 4, left: 87, delay: "-2.1s", duration: "4.7s", bolls: [{x: -2, y: -40}, {x: 4, y: -34}, {x: 1, y: -46}] }
+];
+
 function App() {
   const [account, setAccount] = useState(null);
   const [message, setMessage] = useState("");
@@ -26,10 +36,10 @@ function App() {
     return stored === null ? true : stored === "true";
   });
 
-  // Nature cluster & burst states
-  const [isBursting, setIsBursting] = useState(false);
-  const [isPulseMotion, setIsPulseMotion] = useState(false);
-  const [burstParticles, setBurstParticles] = useState([]);
+  // Cotton field states
+  // fieldState can be: 'idle' | 'dispersing' | 'bare' | 'regrowing'
+  const [fieldState, setFieldState] = useState("idle");
+  const [driftingBolls, setDriftingBolls] = useState([]);
 
   // Custom states for replies
   const [replyingTo, setReplyingTo] = useState(null);
@@ -158,48 +168,112 @@ function App() {
     }
   }, [contractAddress]);
 
-  const handleTriggerBurst = () => {
-    if (isBursting) return;
+  const handleFieldClick = () => {
+    if (fieldState !== "idle") return;
 
     const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     if (prefersReducedMotion) {
-      setIsPulseMotion(true);
+      setFieldState("dispersing");
       setTimeout(() => {
-        setIsPulseMotion(false);
+        setFieldState("bare");
+        setTimeout(() => {
+          setFieldState("regrowing");
+          setTimeout(() => {
+            setFieldState("idle");
+          }, 1000);
+        }, 2000);
       }, 600);
       return;
     }
 
-    setIsBursting(true);
+    setFieldState("dispersing");
 
-    // Approximate cluster origin: bottom-right area of screen
-    const particles = Array.from({ length: 25 }).map((_, i) => {
-      const isCotton = i % 2 === 0;
-      return {
-        id: Date.now() + i,
-        type: isCotton ? 'cotton' : 'firefly',
-        originX: 'calc(100vw - 120px)',
-        originY: 'calc(100vh - 120px)',
-        targetX: `${Math.random() * 90 + 5}vw`,
-        targetY: `${Math.random() * 90 + 5}vh`,
-        targetScale: Math.random() * 1.5 + 0.5,
-        duration: `${Math.random() * 1.0 + 1.2}s`,
-        delay: `${Math.random() * 0.4}s`
-      };
-    });
+    // Generate drifting elements for 7 plants x 3 bolls = 21 bolls
+    const tempBolls = [];
+    let idCounter = 0;
 
-    setBurstParticles(particles);
+    // 7 Plants
+    for (let p = 0; p < 7; p++) {
+      // 3 Bolls per plant
+      for (let b = 0; b < 3; b++) {
+        const id = Date.now() + idCounter++;
+        const baseAngleDeg = -60; // mostly up-and-rightward
+        const angleVariance = 30; // ±30 degrees
+        const angle = (baseAngleDeg + (Math.random() * 2 - 1) * angleVariance) * (Math.PI / 180);
+        const distance = 150 + Math.random() * 150; // 150px to 300px
+        const targetX = Math.cos(angle) * distance;
+        const targetY = Math.sin(angle) * distance;
 
+        const durationMs = 1500 + Math.random() * 700; // 1.5s to 2.2s
+        const delayMs = (p * 80) + (b * 120) + (Math.random() * 100); // staggered starting times
+
+        tempBolls.push({
+          id,
+          type: "cotton",
+          plantIndex: p,
+          bollIndex: b,
+          targetX: `${targetX.toFixed(2)}px`,
+          targetY: `${targetY.toFixed(2)}px`,
+          durationMs,
+          delayMs,
+          scale: Math.random() * 0.3 + 0.85
+        });
+      }
+    }
+
+    // Add 3-4 fireflies
+    const fireflyCount = Math.floor(Math.random() * 2) + 3; // 3 to 4 fireflies
+    for (let f = 0; f < fireflyCount; f++) {
+      const id = Date.now() + idCounter++;
+      const baseAngleDeg = -60;
+      const angleVariance = 45; // wider variance for fireflies
+      const angle = (baseAngleDeg + (Math.random() * 2 - 1) * angleVariance) * (Math.PI / 180);
+      const distance = 200 + Math.random() * 150; // drift further
+      const targetX = Math.cos(angle) * distance;
+      const targetY = Math.sin(angle) * distance;
+
+      const durationMs = 1800 + Math.random() * 700;
+      const delayMs = Math.random() * 600; // start early
+
+      tempBolls.push({
+        id,
+        type: "firefly",
+        plantIndex: -1,
+        bollIndex: f,
+        targetX: `${targetX.toFixed(2)}px`,
+        targetY: `${targetY.toFixed(2)}px`,
+        durationMs,
+        delayMs,
+        scale: Math.random() * 0.4 + 0.8
+      });
+    }
+
+    setDriftingBolls(tempBolls);
+
+    // Track the absolute longest animation end time
+    const maxFinishTime = Math.max(...tempBolls.map(b => b.delayMs + b.durationMs));
+
+    // Stems stay bare only AFTER the last drifting boll has completely faded out
     setTimeout(() => {
-      setBurstParticles([]);
-      setIsBursting(false);
-    }, 2600);
+      setFieldState("bare");
+      setDriftingBolls([]); // unmount drifting bolls completely
+
+      // Wait a bare pause of 3 seconds before starting shared regrowth
+      setTimeout(() => {
+        setFieldState("regrowing");
+
+        // Regrowth finishes and becomes clickable again after 1.5 seconds
+        setTimeout(() => {
+          setFieldState("idle");
+        }, 1500);
+      }, 3000);
+    }, maxFinishTime);
   };
 
-  const handleClusterKeyDown = (e) => {
-    if (e.key === ' ' || e.key === 'Enter') {
+  const handleFieldKeyDown = (e) => {
+    if (e.key === " " || e.key === "Enter") {
       e.preventDefault();
-      handleTriggerBurst();
+      handleFieldClick();
     }
   };
 
@@ -868,34 +942,6 @@ function App() {
             
             <div className="tree-container" style={{ position: 'relative' }}>
               {renderTreeSVG()}
-              
-              {/* Cotton & Firefly Nature Cluster */}
-              <div 
-                className={`nature-cluster ${isPulseMotion ? 'pulse-motion' : ''}`}
-                role="button"
-                tabIndex={0}
-                onClick={handleTriggerBurst}
-                onKeyDown={handleClusterKeyDown}
-                aria-label="Release the pollen and fireflies burst"
-                title="Release the pollen and fireflies burst"
-              >
-                {/* Only render idle particles when NOT bursting */}
-                {!isBursting && (
-                  <>
-                    {/* 5 Cotton puffs */}
-                    <div className="cotton-puff" style={{ width: '12px', height: '12px', top: '25%', left: '30%', '--drift-x': '4px', '--drift-y': '-6px', animationDelay: '0s' }} />
-                    <div className="cotton-puff" style={{ width: '10px', height: '10px', top: '40%', left: '50%', '--drift-x': '-5px', '--drift-y': '5px', animationDelay: '-1s' }} />
-                    <div className="cotton-puff" style={{ width: '14px', height: '14px', top: '55%', left: '25%', '--drift-x': '6px', '--drift-y': '-4px', animationDelay: '-2s' }} />
-                    <div className="cotton-puff" style={{ width: '9px', height: '9px', top: '20%', left: '60%', '--drift-x': '-3px', '--drift-y': '-7px', animationDelay: '-3s' }} />
-                    <div className="cotton-puff" style={{ width: '11px', height: '11px', top: '65%', left: '45%', '--drift-x': '5px', '--drift-y': '6px', animationDelay: '-1.5s' }} />
-
-                    {/* 3 Cluster fireflies */}
-                    <div className="nature-firefly" style={{ width: '4px', height: '4px', top: '35%', left: '40%', '--drift-x': '-6px', '--drift-y': '8px', animationDelay: '0s' }} />
-                    <div className="nature-firefly" style={{ width: '5px', height: '5px', top: '50%', left: '35%', '--drift-x': '7px', '--drift-y': '-5px', animationDelay: '-0.7s' }} />
-                    <div className="nature-firefly" style={{ width: '4px', height: '4px', top: '30%', left: '55%', '--drift-x': '-5px', '--drift-y': '-6px', animationDelay: '-1.4s' }} />
-                  </>
-                )}
-              </div>
             </div>
 
             <div className="forest-stats">
@@ -947,6 +993,128 @@ function App() {
                 </div>
               </div>
             </div>
+
+            {/* Cotton Field Patch */}
+            <div 
+              className="cotton-field-patch"
+              role="button"
+              tabIndex={0}
+              onClick={handleFieldClick}
+              onKeyDown={handleFieldKeyDown}
+              aria-label="Release the cotton field bolls and fireflies"
+              title="Release the cotton field bolls and fireflies"
+            >
+              {/* Soil base strip */}
+              <div className="cotton-soil-strip" />
+
+              {/* 7 Plants */}
+              {cottonPlants.map((plant, pIdx) => {
+                const showBolls = fieldState === 'idle' || fieldState === 'regrowing';
+                const isRegrowing = fieldState === 'regrowing';
+                return (
+                  <div 
+                    key={pIdx} 
+                    className="cotton-plant" 
+                    style={{ 
+                      left: `${plant.left}%`,
+                      animationDelay: plant.delay,
+                      animationDuration: plant.duration
+                    }}
+                  >
+                    {/* SVG Stem and Leaves */}
+                    <svg viewBox="0 0 20 80" className="cotton-plant-svg" preserveAspectRatio="none">
+                      {/* Stem */}
+                      <path 
+                        d={`M 10 80 Q ${10 + plant.angle} ${80 - plant.height/2} 10 ${80 - plant.height}`} 
+                        fill="none" 
+                        stroke="var(--border-color)" 
+                        strokeWidth="1.5" 
+                      />
+                      {/* Leaf 1 */}
+                      <path 
+                        d={`M 10 65 Q 2 60 5 50 Q 12 55 10 65`} 
+                        fill="var(--accent-forest)" 
+                        opacity="0.6" 
+                      />
+                      {/* Leaf 2 */}
+                      <path 
+                        d={`M 10 50 Q 18 45 15 35 Q 8 40 10 50`} 
+                        fill="var(--accent-forest)" 
+                        opacity="0.6" 
+                      />
+                    </svg>
+
+                    {/* Cotton Bolls */}
+                    {showBolls && plant.bolls.map((boll, bIdx) => (
+                      <div 
+                        key={bIdx} 
+                        className={`cotton-boll ${isRegrowing ? 'regrowing' : ''}`}
+                        style={{
+                          transform: `translate(${boll.x}px, ${boll.y}px)`,
+                          animationDelay: `${pIdx * 60 + bIdx * 80}ms`
+                        }}
+                      >
+                        {/* Overlapping puffs for 1 boll */}
+                        <div className="puff-circle p1" />
+                        <div className="puff-circle p2" />
+                        <div className="puff-circle p3" />
+                      </div>
+                    ))}
+                  </div>
+                );
+              })}
+
+              {/* Drifting Bolls & Fireflies on Dispersal */}
+              {driftingBolls.map(b => {
+                if (b.type === 'cotton') {
+                  const plant = cottonPlants[b.plantIndex];
+                  const boll = plant.bolls[b.bollIndex];
+                  // Start coordinate relative to the plant base
+                  const startX = `calc(${plant.left}% + ${boll.x}px)`;
+                  const startY = `calc(100% - 15px + ${boll.y}px)`;
+                  return (
+                    <div 
+                      key={b.id}
+                      className="drifting-element drifting-cotton"
+                      style={{
+                        left: startX,
+                        top: startY,
+                        '--target-x': b.targetX,
+                        '--target-y': b.targetY,
+                        '--drift-duration': `${b.durationMs}ms`,
+                        animationDelay: `${b.delayMs}ms`,
+                        transform: `scale(${b.scale})`,
+                        pointerEvents: 'none'
+                      }}
+                    >
+                      <div className="puff-circle p1" />
+                      <div className="puff-circle p2" />
+                      <div className="puff-circle p3" />
+                    </div>
+                  );
+                } else {
+                  // Firefly start coordinate
+                  const startX = `${30 + Math.random() * 40}%`;
+                  const startY = `calc(100% - 25px)`;
+                  return (
+                    <div 
+                      key={b.id}
+                      className="drifting-element drifting-firefly"
+                      style={{
+                        left: startX,
+                        top: startY,
+                        '--target-x': b.targetX,
+                        '--target-y': b.targetY,
+                        '--drift-duration': `${b.durationMs}ms`,
+                        animationDelay: `${b.delayMs}ms`,
+                        transform: `scale(${b.scale})`,
+                        pointerEvents: 'none'
+                      }}
+                    />
+                  );
+                }
+              })}
+            </div>
           </section>
         </div>
       </main>
@@ -957,28 +1125,6 @@ function App() {
         </p>
       </footer>
 
-      {/* Full-Screen Burst Particles Overlay */}
-      {burstParticles.length > 0 && (
-        <div className="burst-overlay">
-          {burstParticles.map(p => (
-            <div 
-              key={p.id}
-              className={`burst-particle ${p.type}`}
-              style={{
-                width: p.type === 'cotton' ? `${Math.random() * 8 + 8}px` : `${Math.random() * 2 + 4}px`,
-                height: p.type === 'cotton' ? `${Math.random() * 8 + 8}px` : `${Math.random() * 2 + 4}px`,
-                '--origin-x': p.originX,
-                '--origin-y': p.originY,
-                '--target-x': p.targetX,
-                '--target-y': p.targetY,
-                '--target-scale': p.targetScale,
-                '--burst-duration': p.duration,
-                animationDelay: p.delay
-              }}
-            />
-          ))}
-        </div>
-      )}
     </div>
   );
 }
