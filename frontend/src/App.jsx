@@ -20,6 +20,16 @@ function App() {
   const [isLoading, setIsLoading] = useState(false);
   const [isTreeShaking, setIsTreeShaking] = useState(false);
   
+  // Legend collapsible state
+  const [isLegendOpen, setIsLegendOpen] = useState(() => {
+    const stored = localStorage.getItem("blockbuddy_legend_open");
+    return stored === null ? true : stored === "true";
+  });
+
+  // Sleeping Fox states
+  const [isFoxTwitching, setIsFoxTwitching] = useState(false);
+  const [isFoxStartled, setIsFoxStartled] = useState(false);
+
   // Custom states for replies
   const [replyingTo, setReplyingTo] = useState(null);
   const [replyContent, setReplyContent] = useState("");
@@ -174,6 +184,45 @@ function App() {
       localStorage.setItem("blockbuddy_contract_address", contractAddress);
     }
   }, [contractAddress]);
+
+  // Trigger sleeping fox twitch when the message count changes (a new message is posted)
+  useEffect(() => {
+    if (posts.length > 0) {
+      setIsFoxTwitching(true);
+      const timer = setTimeout(() => {
+        setIsFoxTwitching(false);
+      }, 300);
+      return () => clearTimeout(timer);
+    }
+  }, [posts.length]);
+
+  const toggleLegend = () => {
+    const nextVal = !isLegendOpen;
+    setIsLegendOpen(nextVal);
+    localStorage.setItem("blockbuddy_legend_open", String(nextVal));
+  };
+
+  const handleLegendKeyDown = (e) => {
+    if (e.key === ' ' || e.key === 'Enter') {
+      e.preventDefault();
+      toggleLegend();
+    }
+  };
+
+  const handleFoxClick = () => {
+    if (isFoxStartled) return;
+    setIsFoxStartled(true);
+    const timer = setTimeout(() => {
+      setIsFoxStartled(false);
+    }, 1000);
+  };
+
+  const handleFoxKeyDown = (e) => {
+    if (e.key === ' ' || e.key === 'Enter') {
+      e.preventDefault();
+      handleFoxClick();
+    }
+  };
 
   // Connect check
   const checkConnection = async () => {
@@ -826,8 +875,41 @@ function App() {
           <section className="zen-panel interactive-visualizer">
             <h2 className="panel-title" style={{ alignSelf: 'flex-start' }}><span>🌳</span> BlockBuddy Tree</h2>
             
-            <div className="tree-container">
+            <div className="tree-container" style={{ position: 'relative' }}>
               {renderTreeSVG()}
+              
+              {/* Sleeping Fox creature decoration */}
+              <div 
+                className="fox-wrapper"
+                role="button"
+                tabIndex={0}
+                onClick={handleFoxClick}
+                onKeyDown={handleFoxKeyDown}
+                aria-label="A sleeping fox curled near the base of the tree. Click to startle it."
+              >
+                <svg 
+                  viewBox="0 0 100 100" 
+                  className={`fox-svg ${isFoxTwitching ? 'twitching' : ''} ${isFoxStartled ? 'startled' : ''}`}
+                >
+                  {/* Curled Body */}
+                  <path d="M75,50 C75,69.3 59.3,85 40,85 C20.7,85 5,69.3 5,50 C5,30.7 20.7,15 40,15 C52.5,15 63.5,21.5 69.5,31 C73,36.5 75,43 75,50 Z" />
+                  {/* Left Ear */}
+                  <path d="M22,28 L15,10 L30,22 Z" />
+                  {/* Right Ear */}
+                  <path d="M38,25 L45,6 L48,22 Z" />
+                  {/* Snout */}
+                  <path d="M25,48 L12,46 L21,38 Z" />
+                  {/* Fluffy Tail */}
+                  <path d="M60,35 C75,38 85,50 85,62 C85,76 70,85 55,85 C46,85 48,80 55,80 C67,80 77,72 77,62 C77,54 70,45 58,42 Z" />
+                  {/* Sleeping eye path */}
+                  {!isFoxStartled ? (
+                    <path d="M25,40 Q30,44 35,40" stroke="var(--bg-color)" strokeWidth="2.5" fill="none" strokeLinecap="round" />
+                  ) : (
+                    /* Startled open eye */
+                    <circle cx="30" cy="38" r="3.5" fill="var(--bg-color)" />
+                  )}
+                </svg>
+              </div>
             </div>
 
             <div className="forest-stats">
@@ -840,6 +922,44 @@ function App() {
                   ? "The seedling is growing healthy roots and tiny branches." 
                   : "The forest is beginning to canopy! Keep it growing."}
               </p>
+            </div>
+
+            {/* Collapsible Meet the Forest Legend Card */}
+            <div className="legend-card">
+              <div 
+                className="legend-header"
+                role="button"
+                tabIndex={0}
+                onClick={toggleLegend}
+                onKeyDown={handleLegendKeyDown}
+                aria-expanded={isLegendOpen}
+                aria-label="Toggle Forest Legend Guide"
+              >
+                <span>🌲 Meet the Forest</span>
+                <span className={`legend-toggle-btn ${isLegendOpen ? '' : 'collapsed'}`}>
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                    <polyline points="6 9 12 15 18 9"></polyline>
+                  </svg>
+                </span>
+              </div>
+              <div className={`legend-content ${isLegendOpen ? '' : 'collapsed'}`} aria-hidden={!isLegendOpen}>
+                <div className="legend-row">
+                  <span className="legend-icon" role="img" aria-label="tree">🌳</span>
+                  <span>The tree grows leaves and branches for every message.</span>
+                </div>
+                <div className="legend-row">
+                  <span className="legend-icon" role="img" aria-label="sparkles">✨</span>
+                  <span>Fireflies drift around. Try clicking them to pop!</span>
+                </div>
+                <div className="legend-row">
+                  <span className="legend-icon" role="img" aria-label="leaf">🍃</span>
+                  <span>Click the tree trunk to give it a gentle shake.</span>
+                </div>
+                <div className="legend-row">
+                  <span className="legend-icon" role="img" aria-label="palette">🎨</span>
+                  <span>Consistent author hues match wallet addresses.</span>
+                </div>
+              </div>
             </div>
           </section>
         </div>

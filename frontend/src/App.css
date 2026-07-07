@@ -896,6 +896,173 @@ footer {
   color: var(--text-main);
 }
 
+/* Phase 1 - Collapsible Legend */
+.legend-card {
+  margin-top: 1rem;
+  background: rgba(255, 255, 255, 0.015);
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  padding: 0.75rem 1rem;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.legend-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  cursor: pointer;
+  user-select: none;
+  font-family: var(--font-heading);
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--text-main);
+}
+
+.legend-toggle-btn {
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.25rem;
+  transition: var(--transition-smooth);
+}
+
+.legend-toggle-btn svg {
+  transition: transform 0.3s ease;
+}
+
+.legend-toggle-btn.collapsed svg {
+  transform: rotate(-90deg);
+}
+
+.legend-content {
+  overflow: hidden;
+  max-height: 500px;
+  opacity: 1;
+  transition: max-height 0.4s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.3s ease;
+  margin-top: 0.75rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+
+.legend-content.collapsed {
+  max-height: 0;
+  opacity: 0;
+  margin-top: 0;
+  pointer-events: none;
+}
+
+.legend-row {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  line-height: 1.4;
+}
+
+.legend-icon {
+  font-size: 1rem;
+  flex-shrink: 0;
+}
+
+/* Phase 2 - Sleeping Fox SVG styling */
+.fox-wrapper {
+  position: absolute;
+  bottom: 12px;
+  right: 25px;
+  width: 50px;
+  height: 50px;
+  cursor: pointer;
+  z-index: 10;
+  transition: var(--transition-smooth);
+}
+
+.fox-svg {
+  width: 100%;
+  height: 100%;
+  fill: var(--accent-moss);
+  opacity: 0.65;
+  transform-origin: bottom center;
+  animation: foxBreathing 3.5s ease-in-out infinite alternate;
+  transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275), fill 0.3s ease, opacity 0.3s ease;
+}
+
+.fox-svg:hover {
+  opacity: 0.9;
+  fill: var(--accent-light);
+}
+
+.fox-svg.twitching {
+  animation: foxTwitch 0.30s ease;
+}
+
+.fox-svg.startled {
+  animation: foxStartle 1s ease forwards;
+  fill: var(--accent-light);
+  opacity: 1;
+}
+
+@keyframes foxBreathing {
+  0% {
+    transform: scale(1) translateY(0);
+  }
+  100% {
+    transform: scale(1.04) translateY(-1px);
+  }
+}
+
+@keyframes foxTwitch {
+  0%, 100% {
+    transform: rotate(0deg);
+  }
+  30% {
+    transform: rotate(-10deg);
+  }
+  70% {
+    transform: rotate(10deg);
+  }
+}
+
+@keyframes foxStartle {
+  0% {
+    transform: scale(1) rotate(0deg);
+  }
+  15% {
+    transform: scale(1.2) translateY(-6px) rotate(-15deg);
+  }
+  40% {
+    transform: scale(1.1) translateY(-2px) rotate(10deg);
+  }
+  70% {
+    transform: scale(1.05) translateY(-1px) rotate(-5deg);
+  }
+  100% {
+    transform: scale(1) translateY(0) rotate(0deg);
+  }
+}
+
+/* Mobile responsive details */
+@media (max-width: 768px) {
+  .fox-wrapper {
+    width: 40px;
+    height: 40px;
+    bottom: 8px;
+    right: 15px;
+  }
+}
+
+@media (max-width: 480px) {
+  .fox-wrapper {
+    display: none;
+  }
+}
+
 
 
 
