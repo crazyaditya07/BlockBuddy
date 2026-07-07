@@ -6,10 +6,10 @@ import './App.css';
 const contractAddress = import.meta.env.VITE_CONTRACT_ADDRESS || "";
 
 const contractABI = [
-  "function postMessage(string memory _content) public",
+  "function postMessage(string memory _content, int256 _parentIndex) public",
   "function getMessageCount() public view returns (uint256)",
-  "function getMessage(uint256 index) public view returns (address, string memory, uint256)",
-  "function getMessages(uint256 start, uint256 count) public view returns ((address sender, string content, uint256 timestamp)[])"
+  "function getMessage(uint256 index) public view returns (address, string memory, uint256, int256)",
+  "function getMessages(uint256 start, uint256 count) public view returns ((address sender, string content, uint256 timestamp, int256 parentIndex)[])"
 ];
 
 function App() {
@@ -19,6 +19,10 @@ function App() {
   const [isSimulated, setIsSimulated] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [isTreeShaking, setIsTreeShaking] = useState(false);
+  
+  // Custom states for replies
+  const [replyingTo, setReplyingTo] = useState(null);
+  const [replyContent, setReplyContent] = useState("");
 
   // Custom toast notification system
   const [toasts, setToasts] = useState([]);
@@ -41,7 +45,6 @@ function App() {
 
   // Throttled mouse parallax listener
   useEffect(() => {
-    // Skip on touch screens (coarse pointer) or users preferring reduced motion
     const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     const isTouchDevice = window.matchMedia('(pointer: coarse)').matches;
     if (prefersReducedMotion || isTouchDevice) return;
@@ -55,13 +58,11 @@ function App() {
     const handleMouseMove = (e) => {
       const centerX = window.innerWidth / 2;
       const centerY = window.innerHeight / 2;
-      // Normalize values from -1 to 1
       targetX = (e.clientX - centerX) / centerX;
       targetY = (e.clientY - centerY) / centerY;
     };
 
     const updateParallax = () => {
-      // Lerp (Linear Interpolation) for smoothness
       currentX += (targetX - currentX) * 0.1;
       currentY += (targetY - currentY) * 0.1;
 
@@ -125,9 +126,9 @@ function App() {
   const glowColor = useMemo(() => {
     const hours = new Date().getHours();
     if (hours >= 20 || hours < 5) {
-      return "rgba(62, 97, 107, 0.15)"; // cooler blue-green at night
+      return "rgba(62, 97, 107, 0.15)";
     } else {
-      return "rgba(82, 141, 103, 0.12)"; // warmer amber-green in day
+      return "rgba(82, 141, 103, 0.12)";
     }
   }, []);
 
@@ -139,7 +140,6 @@ function App() {
     for (let i = 0; i < cleanAddr.length; i++) {
       hash = cleanAddr.charCodeAt(i) + ((hash << 5) - hash);
     }
-    // Map to HSL hue spectrum (75 to 175) for jungle greens/teals/limes
     const hue = Math.abs(hash % 100) + 75;
     return `hsl(${hue}, 55%, 55%)`;
   };
@@ -155,8 +155,8 @@ function App() {
         setPosts(JSON.parse(stored));
       } else {
         const initialMock = [
-          { sender: "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266", content: "🌱 Welcome to BlockBuddy! Connect MetaMask or write local messages.", timestamp: Date.now() / 1000 - 3600 },
-          { sender: "0x70997970C51812dc3A010C7d01b50e0d17dc79C8", content: "🌲 Let's plant some messages on the private blockchain to grow this forest!", timestamp: Date.now() / 1000 - 1800 }
+          { index: 0, sender: "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266", content: "🌱 Welcome to BlockBuddy! Connect MetaMask or write local messages.", timestamp: Date.now() / 1000 - 3600, parentIndex: -1 },
+          { index: 1, sender: "0x70997970C51812dc3A010C7d01b50e0d17dc79C8", content: "🌲 Let's plant some messages on the private blockchain to grow this forest!", timestamp: Date.now() / 1000 - 1800, parentIndex: -1 }
         ];
         setPosts(initialMock);
         localStorage.setItem("blockbuddy_posts", JSON.stringify(initialMock));
@@ -230,7 +230,6 @@ function App() {
     try {
       const provider = new ethers.BrowserProvider(window.ethereum);
       
-      // Verify if a contract is actually deployed at this address on this network
       const code = await provider.getCode(currentAddress);
       if (code === "0x" || code === "0x0") {
         console.warn(`No contract code at address ${currentAddress} on the active network.`);
@@ -248,16 +247,17 @@ function App() {
       
       for (let start = 0; start < count; start += batchSize) {
         const batch = await contract.getMessages(start, batchSize);
-        for (const item of batch) {
+        batch.forEach((item, idx) => {
           loadedPosts.push({
+            index: start + idx,
             sender: item.sender,
             content: item.content,
-            timestamp: Number(item.timestamp)
+            timestamp: Number(item.timestamp),
+            parentIndex: Number(item.parentIndex)
           });
-        }
+        });
       }
       
-      loadedPosts.sort((a, b) => b.timestamp - a.timestamp);
       setPosts(loadedPosts);
     } catch (error) {
       console.error("Failed to fetch blockchain messages:", error);
@@ -307,14 +307,6 @@ function App() {
     }
   };
 
-  // Keyboard support for simulation mode toggle
-  const handleSimulationModeKeyDown = (e) => {
-    if (e.key === ' ' || e.key === 'Enter') {
-      e.preventDefault();
-      toggleSimulationMode();
-    }
-  };
-
   const handleAddressChange = (e) => {
     const addr = e.target.value.trim();
     setCurrentAddress(addr);
@@ -326,11 +318,11 @@ function App() {
     }
   };
 
-  // User posts a message
-  const handlePost = async () => {
-    if (!message.trim()) return;
+  // User posts a message or reply
+  const handlePost = async (content, parentIdx = -1) => {
+    if (!content.trim()) return;
 
-    if (message.length > 280) {
+    if (content.length > 280) {
       showToast("Message exceeds the 280-character limit.", "error");
       return;
     }
@@ -338,15 +330,24 @@ function App() {
     triggerLeafFall();
 
     if (isSimulated) {
+      const newIdx = posts.length;
       const newPost = {
+        index: newIdx,
         sender: account || "0xSimulatedUserAccount",
-        content: message,
-        timestamp: Date.now() / 1000
+        content: content,
+        timestamp: Date.now() / 1000,
+        parentIndex: parentIdx
       };
-      const updated = [newPost, ...posts];
+      const updated = [...posts, newPost];
       setPosts(updated);
       localStorage.setItem("blockbuddy_posts", JSON.stringify(updated));
-      setMessage("");
+      
+      if (parentIdx === -1) {
+        setMessage("");
+      } else {
+        setReplyContent("");
+        setReplyingTo(null);
+      }
       showToast("🌱 Message planted in simulator sandbox!", "success");
       return;
     }
@@ -367,9 +368,15 @@ function App() {
 
     try {
       setIsLoading(true);
-      const tx = await contract.postMessage(message);
+      const tx = await contract.postMessage(content, parentIdx);
       await tx.wait();
-      setMessage("");
+      
+      if (parentIdx === -1) {
+        setMessage("");
+      } else {
+        setReplyContent("");
+        setReplyingTo(null);
+      }
       showToast("🌱 Message planted on-chain!", "success");
       fetchBlockchainMessages();
     } catch (error) {
@@ -397,7 +404,6 @@ function App() {
       handleTreeShake();
     }
   };
-
 
   // Visual leaf particles effect
   const triggerLeafFall = () => {
@@ -508,12 +514,31 @@ function App() {
     );
   };
 
+  // Group threads: filter parents and map replies
+  const groupedThreads = useMemo(() => {
+    const parents = posts.filter(p => Number(p.parentIndex) === -1);
+    // Sort top-level posts newest first
+    parents.sort((a, b) => b.timestamp - a.timestamp);
+
+    const repliesMap = {};
+    posts.forEach(p => {
+      const parent = Number(p.parentIndex);
+      if (parent !== -1) {
+        if (!repliesMap[parent]) repliesMap[parent] = [];
+        repliesMap[parent].push(p);
+      }
+    });
+
+    // Sort replies oldest first (chronological order)
+    Object.keys(repliesMap).forEach(key => {
+      repliesMap[key].sort((a, b) => a.timestamp - b.timestamp);
+    });
+
+    return { parents, repliesMap };
+  }, [posts]);
+
   return (
-    <div 
-      className="app-wrapper" 
-      ref={containerRef} 
-      style={{ '--glow-color': glowColor }}
-    >
+    <div className="app-wrapper" ref={containerRef} style={{ '--glow-color': glowColor }}>
       <div className="ambient-glow parallax-far" />
 
       {/* Background corner decorations */}
@@ -580,7 +605,6 @@ function App() {
         </div>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-
           <div className="mode-selector-container">
             <button 
               className={`btn-mode-select ${!isSimulated ? 'active' : ''}`}
@@ -634,7 +658,7 @@ function App() {
                 <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
                   {message.length}/280 characters
                 </span>
-                <button className="btn-post" onClick={handlePost} disabled={isLoading || !message.trim()}>
+                <button className="btn-post" onClick={() => handlePost(message, -1)} disabled={isLoading || !message.trim()}>
                   <span>{isLoading ? "Mining..." : "Plant Message 🌱"}</span>
                 </button>
               </div>
@@ -675,38 +699,112 @@ function App() {
           <section className="zen-panel feed-panel">
             <h2 className="panel-title"><span>📜</span> Message Feed</h2>
             <div className="messages-list-container">
-              {posts.length === 0 ? (
+              {groupedThreads.parents.length === 0 ? (
                 <div className="empty-state">
                   <div className="empty-icon">🍂</div>
                   <p>No messages have been planted yet.</p>
                 </div>
               ) : (
                 <>
-                  {posts.slice(0, visibleCount).map((post, idx) => {
+                  {groupedThreads.parents.slice(0, visibleCount).map((post) => {
                     const isOwn = post.sender.toLowerCase() === account?.toLowerCase();
                     const senderColor = getSenderColor(post.sender);
+                    const replies = groupedThreads.repliesMap[post.index] || [];
+                    const isReplying = replyingTo === post.index;
+
                     return (
-                      <div 
-                        className={`message-card ${isOwn ? 'own-message' : ''} ${idx === 0 ? 'new-arrival' : ''}`} 
-                        key={idx}
-                        style={{ borderLeft: `4px solid ${senderColor}` }}
-                      >
-                        <div className="card-header">
-                          <span className="sender-address" style={{ color: senderColor }}>
-                            <svg style={{ width: '8px', height: '8px', fill: senderColor, marginRight: '4px', verticalAlign: 'middle' }} viewBox="0 0 24 24" aria-hidden="true">
-                              <path d="M12 2C12 2 4 10 4 14C4 18.42 7.58 22 12 22C16.42 22 20 18.42 20 14C20 10 12 2 12 2Z" />
-                            </svg>
-                            {post.sender.substring(0, 8)}...{post.sender.substring(post.sender.length - 6)}
-                          </span>
-                          <span className="post-time">
-                            {new Date(post.timestamp * 1000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                          </span>
+                      <div key={post.index} style={{ marginBottom: '1.5rem' }}>
+                        {/* Parent message card */}
+                        <div 
+                          className={`message-card ${isOwn ? 'own-message' : ''}`} 
+                          style={{ borderLeft: `4px solid ${senderColor}` }}
+                        >
+                          <div className="card-header">
+                            <span className="sender-address" style={{ color: senderColor }}>
+                              <svg style={{ width: '8px', height: '8px', fill: senderColor, marginRight: '4px', verticalAlign: 'middle' }} viewBox="0 0 24 24" aria-hidden="true">
+                                <path d="M12 2C12 2 4 10 4 14C4 18.42 7.58 22 12 22C16.42 22 20 18.42 20 14C20 10 12 2 12 2Z" />
+                              </svg>
+                              {post.sender.substring(0, 8)}...{post.sender.substring(post.sender.length - 6)}
+                            </span>
+                            <span className="post-time">
+                              {new Date(post.timestamp * 1000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                            </span>
+                          </div>
+                          <div className="message-content">{post.content}</div>
+                          
+                          <button 
+                            className="btn-reply" 
+                            onClick={() => setReplyingTo(isReplying ? null : post.index)}
+                            aria-label="Reply to this message"
+                          >
+                            💬 Reply
+                          </button>
                         </div>
-                        <div className="message-content">{post.content}</div>
+
+                        {/* Inline reply form */}
+                        {isReplying && (
+                          <div className="reply-form">
+                            <textarea 
+                              className="reply-input"
+                              placeholder="Write your reply (max 280 chars)..."
+                              value={replyContent}
+                              onChange={(e) => setReplyContent(e.target.value)}
+                              maxLength={280}
+                              disabled={isLoading}
+                            />
+                            <div className="reply-actions">
+                              <button 
+                                className="btn-reply-submit" 
+                                style={{ background: 'transparent', border: '1px solid var(--border-color)', color: 'var(--text-muted)' }}
+                                onClick={() => setReplyingTo(null)}
+                                disabled={isLoading}
+                              >
+                                Cancel
+                              </button>
+                              <button 
+                                className="btn-reply-submit" 
+                                onClick={() => handlePost(replyContent, post.index)}
+                                disabled={isLoading || !replyContent.trim()}
+                              >
+                                {isLoading ? "Sending..." : "Send Reply"}
+                              </button>
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Nested replies list */}
+                        {replies.length > 0 && (
+                          <div className="replies-container">
+                            {replies.map((reply) => {
+                              const isReplyOwn = reply.sender.toLowerCase() === account?.toLowerCase();
+                              const replyColor = getSenderColor(reply.sender);
+                              return (
+                                <div 
+                                  key={reply.index} 
+                                  className={`message-card reply-card ${isReplyOwn ? 'own-message' : ''}`}
+                                  style={{ borderLeft: `3px solid ${replyColor}` }}
+                                >
+                                  <div className="card-header">
+                                    <span className="sender-address" style={{ color: replyColor, fontSize: '0.7rem' }}>
+                                      <svg style={{ width: '6px', height: '6px', fill: replyColor, marginRight: '3px', verticalAlign: 'middle' }} viewBox="0 0 24 24" aria-hidden="true">
+                                        <path d="M12 2C12 2 4 10 4 14C4 18.42 7.58 22 12 22C16.42 22 20 18.42 20 14C20 10 12 2 12 2Z" />
+                                      </svg>
+                                      {reply.sender.substring(0, 8)}...{reply.sender.substring(reply.sender.length - 6)}
+                                    </span>
+                                    <span className="post-time" style={{ fontSize: '0.7rem' }}>
+                                      {new Date(reply.timestamp * 1000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                    </span>
+                                  </div>
+                                  <div className="message-content">{reply.content}</div>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        )}
                       </div>
                     );
                   })}
-                  {posts.length > visibleCount && (
+                  {groupedThreads.parents.length > visibleCount && (
                     <div style={{ textAlign: 'center', marginTop: '1rem' }}>
                       <button 
                         className="btn-connect" 
@@ -749,7 +847,7 @@ function App() {
 
       <footer>
         <p>
-          BlockBuddy Blockchain Message Board • Powered by Hardhat, Ganache & React • <span style={{ cursor: 'pointer', textDecoration: 'underline' }} onClick={toggleSimulationMode}>Toggle Simulator</span>
+          BlockBuddy Blockchain Message Board • Powered by Hardhat, React • <span style={{ cursor: 'pointer', textDecoration: 'underline' }} onClick={toggleSimulationMode}>Toggle Simulator</span>
         </p>
       </footer>
     </div>

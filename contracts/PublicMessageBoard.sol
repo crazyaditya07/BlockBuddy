@@ -2,7 +2,7 @@
 pragma solidity ^0.8.20;
 
 /// @title PublicMessageBoard
-/// @notice A public decentralized bulletin board where users can post messages and see a digital forest grow.
+/// @notice A public decentralized bulletin board where users can post messages and threaded replies.
 contract PublicMessageBoard {
     
     /// @notice Structure to hold a single message
@@ -10,6 +10,7 @@ contract PublicMessageBoard {
         address sender;
         string content;
         uint256 timestamp;
+        int256 parentIndex; // -1 if it's a top-level post, otherwise the index of the parent message
     }
 
     /// @notice Array containing all messages posted to this bulletin board
@@ -19,18 +20,25 @@ contract PublicMessageBoard {
     /// @param sender The address of the poster
     /// @param content The text content of the message
     /// @param timestamp The time at which the block was mined
-    event NewMessage(address indexed sender, string content, uint256 timestamp);
+    /// @param parentIndex The parent message index (-1 for top-level messages)
+    event NewMessage(address indexed sender, string content, uint256 timestamp, int256 parentIndex);
 
-    /// @notice Posts a message to the bulletin board
-    /// @dev Reverts if the message is empty or exceeds 280 characters
+    /// @notice Posts a message or reply to the bulletin board
+    /// @dev Reverts if the message is empty, exceeds 280 characters, or has invalid parentIndex / nested reply
     /// @param _content The message body to post
-    function postMessage(string memory _content) public {
+    /// @param _parentIndex The parent message index (-1 for top-level messages)
+    function postMessage(string memory _content, int256 _parentIndex) public {
         require(bytes(_content).length > 0, "Message cannot be empty");
         require(bytes(_content).length <= 280, "Message exceeds 280 characters");
         
-        messages.push(Message(msg.sender, _content, block.timestamp));
+        if (_parentIndex != -1) {
+            require(_parentIndex >= 0 && uint256(_parentIndex) < messages.length, "Parent message does not exist");
+            require(messages[uint256(_parentIndex)].parentIndex == -1, "Cannot reply to a reply");
+        }
         
-        emit NewMessage(msg.sender, _content, block.timestamp);
+        messages.push(Message(msg.sender, _content, block.timestamp, _parentIndex));
+        
+        emit NewMessage(msg.sender, _content, block.timestamp, _parentIndex);
     }
 
     /// @notice Returns the total count of messages posted
@@ -44,10 +52,11 @@ contract PublicMessageBoard {
     /// @return sender The address of the user who sent the message
     /// @return content The body text of the message
     /// @return timestamp The blockchain timestamp of the message
-    function getMessage(uint256 index) public view returns (address sender, string memory content, uint256 timestamp) {
+    /// @return parentIndex The parent index (-1 for top-level messages)
+    function getMessage(uint256 index) public view returns (address sender, string memory content, uint256 timestamp, int256 parentIndex) {
         require(index < messages.length, "Message does not exist");
         Message memory msgItem = messages[index];
-        return (msgItem.sender, msgItem.content, msgItem.timestamp);
+        return (msgItem.sender, msgItem.content, msgItem.timestamp, msgItem.parentIndex);
     }
 
     /// @notice Retrieves a batch of messages for pagination
