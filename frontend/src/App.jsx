@@ -12,14 +12,7 @@ const contractABI = [
   "function getMessages(uint256 start, uint256 count) public view returns ((address sender, string content, uint256 timestamp, int256 parentIndex)[])"
 ];
 
-const dandelionPlants = Array.from({ length: 50 }).map((_, i) => {
-  const left = 2 + (i * 1.9) + (Math.random() * 0.6 - 0.3);
-  const height = 28 + (i % 5) * 4.5 + Math.random() * 2.5;
-  const angle = (i % 2 === 0 ? -1 : 1) * (1.5 + Math.random() * 2);
-  const delay = `-${(Math.random() * 3).toFixed(1)}s`;
-  const duration = `${(3.5 + Math.random() * 2).toFixed(1)}s`;
-  return { left: Math.min(Math.max(left, 1), 99), height, angle, delay, duration };
-});
+
 
 function App() {
   const [account, setAccount] = useState(null);
@@ -34,11 +27,6 @@ function App() {
     const stored = localStorage.getItem("blockbuddy_legend_open");
     return stored === null ? true : stored === "true";
   });
-
-  // Dandelion field states
-  // fieldState can be: 'idle' | 'dispersing' | 'bare' | 'regrowing'
-  const [fieldState, setFieldState] = useState("idle");
-  const [driftingSeeds, setDriftingSeeds] = useState([]);
 
   // Custom states for replies
   const [replyingTo, setReplyingTo] = useState(null);
@@ -62,7 +50,6 @@ function App() {
 
   const [leavesParticles, setLeavesParticles] = useState([]);
   const containerRef = useRef(null);
-  const patchRef = useRef(null);
 
   // Throttled mouse parallax listener
   useEffect(() => {
@@ -168,126 +155,7 @@ function App() {
     }
   }, [contractAddress]);
 
-  const handleFieldClick = () => {
-    if (fieldState !== "idle") return;
 
-    const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-    if (prefersReducedMotion) {
-      setFieldState("dispersing");
-      setTimeout(() => {
-        setFieldState("bare");
-        setTimeout(() => {
-          setFieldState("regrowing");
-          setTimeout(() => {
-            setFieldState("idle");
-          }, 1000);
-        }, 2000);
-      }, 600);
-      return;
-    }
-
-    setFieldState("dispersing");
-
-    const rect = patchRef.current ? patchRef.current.getBoundingClientRect() : { left: 0, top: 0, width: 0 };
-
-    // Generate drifting elements for 50 plants x 5 spokes = 250 filaments
-    const tempSeeds = [];
-    let idCounter = 0;
-
-    // 50 Dandelions
-    for (let p = 0; p < 50; p++) {
-      const plant = dandelionPlants[p];
-      const centerX = rect.left + (plant.left / 100) * rect.width;
-      const centerY = rect.top + 70 - plant.height;
-
-      // 5 Spokes/seeds per dandelion (angled 0, 72, 144, 216, 288 degrees)
-      for (let s = 0; s < 5; s++) {
-        const id = Date.now() + idCounter++;
-        
-        // Target coordinates randomly fanning out to the whole screen (mostly up/right)
-        const destX = Math.random() * window.innerWidth;
-        const destY = Math.random() * window.innerHeight * 0.7;
-        const targetX = destX - centerX;
-        const targetY = destY - centerY;
-
-        const durationMs = 1500 + Math.random() * 800; // 1.5s to 2.3s
-        const delayMs = (p * 25) + (s * 50) + (Math.random() * 100); // staggered starting times
-
-        tempSeeds.push({
-          id,
-          type: "spoke",
-          plantIndex: p,
-          spokeIndex: s,
-          startX: `${centerX.toFixed(1)}px`,
-          startY: `${centerY.toFixed(1)}px`,
-          targetX: `${targetX.toFixed(1)}px`,
-          targetY: `${targetY.toFixed(1)}px`,
-          durationMs,
-          delayMs,
-          scale: Math.random() * 0.3 + 0.8
-        });
-      }
-    }
-
-    // Add 3-4 fireflies
-    const fireflyCount = Math.floor(Math.random() * 2) + 3;
-    for (let f = 0; f < fireflyCount; f++) {
-      const id = Date.now() + idCounter++;
-      
-      const startX = rect.left + (0.3 + Math.random() * 0.4) * rect.width;
-      const startY = rect.top + 30;
-
-      const destX = Math.random() * window.innerWidth;
-      const destY = Math.random() * window.innerHeight * 0.6;
-      const targetX = destX - startX;
-      const targetY = destY - startY;
-
-      const durationMs = 2000 + Math.random() * 800;
-      const delayMs = Math.random() * 500;
-
-      tempSeeds.push({
-        id,
-        type: "firefly",
-        plantIndex: -1,
-        spokeIndex: f,
-        startX: `${startX.toFixed(1)}px`,
-        startY: `${startY.toFixed(1)}px`,
-        targetX: `${targetX.toFixed(1)}px`,
-        targetY: `${targetY.toFixed(1)}px`,
-        durationMs,
-        delayMs,
-        scale: Math.random() * 0.4 + 0.8
-      });
-    }
-
-    setDriftingSeeds(tempSeeds);
-
-    // Track the absolute longest animation end time (stagger delay + drift duration)
-    const maxFinishTime = Math.max(...tempSeeds.map(s => s.delayMs + s.durationMs));
-
-    // Stems stay bare only AFTER the last drifting seed has completely faded out
-    setTimeout(() => {
-      setFieldState("bare");
-      setDriftingSeeds([]); // unmount drifting elements completely
-
-      // Wait a bare pause of 3 seconds before starting shared regrowth
-      setTimeout(() => {
-        setFieldState("regrowing");
-
-        // Regrowth finishes and becomes clickable again after 1.5 seconds
-        setTimeout(() => {
-          setFieldState("idle");
-        }, 1500);
-      }, 3000);
-    }, maxFinishTime);
-  };
-
-  const handleFieldKeyDown = (e) => {
-    if (e.key === " " || e.key === "Enter") {
-      e.preventDefault();
-      handleFieldClick();
-    }
-  };
 
   const toggleLegend = () => {
     const nextVal = !isLegendOpen;
@@ -1006,173 +874,7 @@ function App() {
               </div>
             </div>
 
-            {/* Dandelion Field Patch */}
-            <div 
-              ref={patchRef}
-              className={`dandelion-field-patch ${fieldState === 'dispersing' ? 'dispersing-reduced' : ''} ${fieldState === 'regrowing' ? 'regrowing-reduced' : ''}`}
-              role="button"
-              tabIndex={0}
-              onClick={handleFieldClick}
-              onKeyDown={handleFieldKeyDown}
-              aria-label="Release the dandelion seeds"
-              title="Release the dandelion seeds"
-            >
-              {/* Soil base strip */}
-              <div className="dandelion-soil-strip" />
 
-              {/* Rosette Grass bed: 12 blades of grass at the base */}
-              {[
-                { left: 5, rotate: -15, h: 22, delay: '0s' },
-                { left: 14, rotate: 10, h: 18, delay: '-0.4s' },
-                { left: 22, rotate: -8, h: 25, delay: '-1.1s' },
-                { left: 33, rotate: 12, h: 20, delay: '-0.7s' },
-                { left: 45, rotate: -5, h: 26, delay: '-1.8s' },
-                { left: 52, rotate: 15, h: 21, delay: '-0.2s' },
-                { left: 62, rotate: -12, h: 24, delay: '-1.5s' },
-                { left: 70, rotate: 8, h: 19, delay: '-0.9s' },
-                { left: 78, rotate: -10, h: 23, delay: '-2.3s' },
-                { left: 85, rotate: 14, h: 22, delay: '-0.5s' },
-                { left: 91, rotate: -6, h: 20, delay: '-1.3s' },
-                { left: 96, rotate: 11, h: 25, delay: '-0.8s' }
-              ].map((g, idx) => (
-                <svg 
-                  key={idx} 
-                  className="grass-blade" 
-                  style={{ 
-                    left: `${g.left}%`, 
-                    width: '12px', 
-                    height: `${g.h}px`,
-                    animationDelay: g.delay
-                  }} 
-                  viewBox="0 0 10 30" 
-                  preserveAspectRatio="none"
-                >
-                  <path 
-                    d={`M 5 30 Q ${5 + g.rotate/5} 15 ${5 + g.rotate/2} 0 Q ${6 + g.rotate/5} 15 5 30`} 
-                    fill="var(--accent-forest)" 
-                    opacity="0.45" 
-                  />
-                </svg>
-              ))}
-
-              {/* 50 Dandelion Plants */}
-              {dandelionPlants.map((plant, pIdx) => {
-                const showHead = fieldState === 'idle' || fieldState === 'regrowing';
-                const isRegrowing = fieldState === 'regrowing';
-                
-                // Calculate 5 spokes
-                const spokeAngles = [0, 72, 144, 216, 288];
-                
-                return (
-                  <div 
-                    key={pIdx} 
-                    className="dandelion-plant" 
-                    style={{ 
-                      left: `${plant.left}%`,
-                      width: '16px',
-                      height: '70px',
-                      animationDelay: plant.delay,
-                      animationDuration: plant.duration
-                    }}
-                  >
-                    {/* SVG delicate Stem */}
-                    <svg viewBox="0 0 20 80" className="dandelion-plant-svg" preserveAspectRatio="none">
-                      <path 
-                        d={`M 10 80 Q ${10 + plant.angle} ${80 - plant.height/2} 10 ${80 - plant.height}`} 
-                        fill="none" 
-                        stroke="rgba(80, 95, 85, 0.75)" 
-                        strokeWidth="1.1" 
-                      />
-                    </svg>
-
-                    {/* Dandelion Fluffy Seed Head */}
-                    {showHead && (
-                      <div 
-                        className="dandelion-head"
-                        style={{
-                          top: `${80 - plant.height - 8}px`
-                        }}
-                      >
-                        {/* Soft cool-white glow behind spokes */}
-                        <div className="dandelion-glow" />
-
-                        {/* Radiating Spoke Lines */}
-                        <svg viewBox="0 0 16 16" style={{ width: '16px', height: '16px', overflow: 'visible' }}>
-                          {spokeAngles.map((angle, sIdx) => {
-                            const rad = angle * (Math.PI / 180);
-                            const x2 = 8 + Math.cos(rad) * 6.5;
-                            const y2 = 8 + Math.sin(rad) * 6.5;
-                            return (
-                              <line
-                                key={sIdx}
-                                x1="8"
-                                y1="8"
-                                x2={x2.toFixed(2)}
-                                y2={y2.toFixed(2)}
-                                className={`dandelion-spoke ${isRegrowing ? 'regrowing' : ''}`}
-                                style={{
-                                  animationDelay: `${pIdx * 40 + sIdx * 50}ms`
-                                }}
-                              />
-                            );
-                          })}
-                        </svg>
-                      </div>
-                    )}
-                  </div>
-                );
-              })}
-
-              {/* Drifting filaments and fireflies */}
-              {driftingSeeds.map(b => {
-                if (b.type === 'spoke') {
-                  return (
-                    <svg 
-                      key={b.id}
-                      className="drifting-element drifting-seed"
-                      style={{
-                        position: 'fixed',
-                        left: b.startX,
-                        top: b.startY,
-                        width: '12px',
-                        height: '12px',
-                        '--target-x': b.targetX,
-                        '--target-y': b.targetY,
-                        '--drift-duration': `${b.durationMs}ms`,
-                        animationDelay: `${b.delayMs}ms`,
-                        transform: `scale(${b.scale})`,
-                        pointerEvents: 'none',
-                        zIndex: 99999
-                      }}
-                      viewBox="0 0 12 12"
-                    >
-                      <line x1="6" y1="6" x2="6" y2="0" />
-                      <line x1="6" y1="6" x2="2" y2="2" />
-                      <line x1="6" y1="6" x2="10" y2="2" />
-                    </svg>
-                  );
-                } else {
-                  return (
-                    <div 
-                      key={b.id}
-                      className="drifting-element drifting-firefly"
-                      style={{
-                        position: 'fixed',
-                        left: b.startX,
-                        top: b.startY,
-                        '--target-x': b.targetX,
-                        '--target-y': b.targetY,
-                        '--drift-duration': `${b.durationMs}ms`,
-                        animationDelay: `${b.delayMs}ms`,
-                        transform: `scale(${b.scale})`,
-                        pointerEvents: 'none',
-                        zIndex: 99999
-                      }}
-                    />
-                  );
-                }
-              })}
-            </div>
           </section>
         </div>
       </main>
