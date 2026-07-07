@@ -708,35 +708,7 @@ footer {
   transition: transform 0.15s cubic-bezier(0.25, 0.8, 0.25, 1);
 }
 
-/* Firefly Interactive states */
-.firefly {
-  cursor: pointer;
-  pointer-events: auto;
-}
 
-.firefly.burst {
-  animation: fireflyBurst 0.35s cubic-bezier(0.1, 0.8, 0.3, 1) forwards !important;
-  pointer-events: none;
-}
-
-@keyframes fireflyBurst {
-  0% {
-    transform: scale(1);
-    opacity: 1;
-    background: radial-gradient(circle, #e1ffd0 0%, #d4f5a5 70%, transparent 100%);
-    box-shadow: 0 0 8px #d4f5a5, 0 0 16px rgba(212, 245, 165, 0.8);
-    filter: blur(0px);
-  }
-  30% {
-    opacity: 1;
-    box-shadow: 0 0 15px #d4f5a5, 0 0 30px #d4f5a5, 0 0 45px rgba(212, 245, 165, 0.9);
-  }
-  100% {
-    transform: scale(5);
-    opacity: 0;
-    filter: blur(3px);
-  }
-}
 
 /* Interactive Tree Visualizer styling */
 .tree-svg {

@@ -92,7 +92,7 @@ function App() {
     };
   }, []);
 
-  // Initialize fireflies configuration with state for click capabilities
+  // Initialize fireflies configuration
   const [fireflies, setFireflies] = useState(() => {
     return Array.from({ length: 12 }).map((_, i) => ({
       id: i,
@@ -100,37 +100,9 @@ function App() {
       top: Math.random() * 100,
       size: Math.random() * 3 + 3,
       duration: Math.random() * 6 + 7,
-      delay: Math.random() * -10,
-      burst: false
+      delay: Math.random() * -10
     }));
   });
-
-  // Handle clicking on a firefly to make it pop and respawn
-  const handleFireflyClick = (id) => {
-    setFireflies(prev => prev.map(fly => {
-      if (fly.id === id) {
-        return { ...fly, burst: true };
-      }
-      return fly;
-    }));
-
-    setTimeout(() => {
-      setFireflies(prev => prev.map(fly => {
-        if (fly.id === id) {
-          return {
-            id,
-            left: Math.random() * 100,
-            top: Math.random() * 100,
-            size: Math.random() * 3 + 3,
-            duration: Math.random() * 6 + 7,
-            delay: 0,
-            burst: false
-          };
-        }
-        return fly;
-      }));
-    }, 400);
-  };
 
   // Compute time-of-day ambient glow color property
   const glowColor = useMemo(() => {
@@ -603,8 +575,7 @@ function App() {
         {fireflies.map((fly) => (
           <div 
             key={fly.id} 
-            className={`firefly ${fly.burst ? 'burst' : ''}`} 
-            onClick={() => handleFireflyClick(fly.id)}
+            className="firefly" 
             style={{
               left: `${fly.left}%`,
               top: `${fly.top}%`,
