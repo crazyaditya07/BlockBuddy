@@ -324,10 +324,10 @@ header.zen-header {
 .feed-panel {
   display: flex;
   flex-direction: column;
-  max-height: 480px;
 }
 
 .messages-list-container {
+  max-height: 380px;
   overflow-y: auto;
   padding-right: 0.5rem;
   flex: 1;
