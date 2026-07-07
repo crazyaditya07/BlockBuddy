@@ -581,15 +581,30 @@ function App() {
 
         <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
 
-          <button 
-            className="btn-mode-toggle" 
-            onClick={toggleSimulationMode} 
-            aria-label={isSimulated ? "Switch to Live Blockchain Mode" : "Switch to Offline Simulation Sandbox"}
-            title={isSimulated ? "Switch to Live Blockchain Mode" : "Switch to Offline Simulation Sandbox"}
-          >
-            <span className={`connection-dot ${isSimulated ? '' : 'connected'}`} />
-            <span>{isSimulated ? "Simulation Sandbox" : "Blockchain Connected"}</span>
-          </button>
+          <div className="mode-selector-container">
+            <button 
+              className={`btn-mode-select ${!isSimulated ? 'active' : ''}`}
+              onClick={() => {
+                if (isSimulated) toggleSimulationMode();
+              }}
+              aria-label="Switch to Live Blockchain Mode"
+              title="Switch to Live Blockchain Mode"
+            >
+              <span className="connection-dot connected" />
+              <span>Blockchain</span>
+            </button>
+            <button 
+              className={`btn-mode-select ${isSimulated ? 'active' : ''}`}
+              onClick={() => {
+                if (!isSimulated) toggleSimulationMode();
+              }}
+              aria-label="Switch to Simulation Sandbox Mode"
+              title="Switch to Simulation Sandbox Mode"
+            >
+              <span className="connection-dot" />
+              <span>Sandbox</span>
+            </button>
+          </div>
 
           <button className="btn-connect" onClick={connectWallet} aria-label={account ? `Wallet connected address ${account}` : "Connect Wallet"}>
             {account ? `${account.substring(0, 6)}...${account.substring(account.length - 4)}` : "Connect Wallet"}

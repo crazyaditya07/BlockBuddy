@@ -763,6 +763,45 @@ footer {
   }
 }
 
+/* Mode Selector buttons */
+.mode-selector-container {
+  display: flex;
+  background: var(--input-bg);
+  border: 1px solid var(--border-color);
+  padding: 0.25rem;
+  border-radius: 12px;
+  gap: 0.25rem;
+  backdrop-filter: blur(8px);
+}
+
+.btn-mode-select {
+  background: transparent;
+  color: var(--text-muted);
+  border: 1px solid transparent;
+  font-family: var(--font-heading);
+  font-size: 0.8rem;
+  font-weight: 500;
+  padding: 0.4rem 0.8rem;
+  border-radius: 8px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  transition: var(--transition-smooth);
+}
+
+.btn-mode-select:hover {
+  color: var(--text-main);
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.btn-mode-select.active {
+  color: var(--text-main);
+  background: var(--panel-bg);
+  border-color: var(--border-color);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+}
+
 
 
 
